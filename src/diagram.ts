@@ -1,6 +1,8 @@
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync, statSync } from 'fs';
 import Ajv from 'ajv';
 import { readSpace } from './read-space.js';
+import { readOstPage } from './read-ost-page.js';
+import type { OstNode } from './types.js';
 
 interface DiagramNode {
   id: string;
@@ -16,17 +18,27 @@ function parseWikilink(wikilink: string): string {
   return match ? match[1]! : wikilink;
 }
 
-export async function diagram(directory: string, options: { schema?: string; output?: string }) {
+export async function diagram(path: string, options: { schema?: string; output?: string }) {
   const schemaPath = options.schema || 'schema.json';
   const schema = JSON.parse(readFileSync(schemaPath, 'utf-8'));
   const ajv = new Ajv();
   const validateFunc = ajv.compile(schema);
 
-  const { nodes: spaceNodes, skipped, nonOst } = await readSpace(directory);
+  let spaceNodes: OstNode[];
+  let skipped: string[] = [];
+  let nonOst: string[] = [];
+
+  if (statSync(path).isFile()) {
+    ({ nodes: spaceNodes } = readOstPage(path));
+  } else {
+    ({ nodes: spaceNodes, skipped, nonOst } = await readSpace(path));
+  }
   const nodes: DiagramNode[] = [];
   const invalid: string[] = [];
 
   for (const node of spaceNodes) {
+    if (node.data.type === 'ost_on_a_page') continue;
+
     const valid = validateFunc(node.data);
     if (!valid) {
       invalid.push(node.label);

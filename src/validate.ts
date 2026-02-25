@@ -1,6 +1,8 @@
-import { readFileSync } from 'fs';
+import { readFileSync, statSync } from 'fs';
 import Ajv from 'ajv';
 import { readSpace } from './read-space.js';
+import { readOstPage } from './read-ost-page.js';
+import type { OstNode } from './types.js';
 
 interface ValidationResult {
   schemaValidCount: number;
@@ -11,13 +13,21 @@ interface ValidationResult {
   nonOst: string[];
 }
 
-export async function validate(directory: string, options: { schema?: string }) {
+export async function validate(path: string, options: { schema?: string }) {
   const schemaPath = options.schema || 'schema.json';
   const schema = JSON.parse(readFileSync(schemaPath, 'utf-8'));
   const ajv = new Ajv();
   const validateFunc = ajv.compile(schema);
 
-  const { nodes, skipped, nonOst } = await readSpace(directory);
+  let nodes: OstNode[];
+  let skipped: string[] = [];
+  let nonOst: string[] = [];
+
+  if (statSync(path).isFile()) {
+    ({ nodes } = readOstPage(path));
+  } else {
+    ({ nodes, skipped, nonOst } = await readSpace(path));
+  }
 
   const result: ValidationResult = {
     schemaValidCount: 0,
