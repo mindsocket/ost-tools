@@ -4,7 +4,10 @@ import { basename, join } from 'path';
 import matter from 'gray-matter';
 import type { OstNode, SpaceReadResult } from './types.js';
 
-export async function readSpace(directory: string): Promise<SpaceReadResult> {
+export async function readSpace(
+  directory: string,
+  options?: { includePageFiles?: boolean },
+): Promise<SpaceReadResult> {
   const files = await glob('**/*.md', { cwd: directory, absolute: false });
   const nodes: OstNode[] = [];
   const skipped: string[] = [];
@@ -21,6 +24,10 @@ export async function readSpace(directory: string): Promise<SpaceReadResult> {
 
     if (!parsed.data.type) {
       nonOst.push(file);
+      continue;
+    }
+
+    if (parsed.data.type === 'ost_on_a_page' && !options?.includePageFiles) {
       continue;
     }
 

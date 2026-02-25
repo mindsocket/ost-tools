@@ -26,7 +26,7 @@ export async function validate(path: string, options: { schema?: string }) {
   if (statSync(path).isFile()) {
     ({ nodes } = readOstPage(path));
   } else {
-    ({ nodes, skipped, nonOst } = await readSpace(path));
+    ({ nodes, skipped, nonOst } = await readSpace(path, { includePageFiles: true }));
   }
 
   const result: ValidationResult = {

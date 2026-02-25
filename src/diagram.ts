@@ -37,8 +37,6 @@ export async function diagram(path: string, options: { schema?: string; output?:
   const invalid: string[] = [];
 
   for (const node of spaceNodes) {
-    if (node.data.type === 'ost_on_a_page') continue;
-
     const valid = validateFunc(node.data);
     if (!valid) {
       invalid.push(node.label);

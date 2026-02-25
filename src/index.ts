@@ -2,6 +2,8 @@
 import { Command } from 'commander';
 import { validate } from './validate.js';
 import { diagram } from './diagram.js';
+import { show } from './show.js';
+import { dump } from './dump.js';
 import { templateSync } from './template-sync.js';
 import { loadConfig, resolveSpace } from './config.js';
 
@@ -26,6 +28,18 @@ program
   .option('-o, --output <path>', 'Output file path (default: stdout)')
   .option('-s, --schema <path>', 'Path to JSON schema file')
   .action((spaceOrDir, options) => diagram(resolveSpace(spaceOrDir, loadConfig()), options));
+
+program
+  .command('show')
+  .description('Print OST tree as an indented list')
+  .argument('<space-dir-or-file>', 'Space alias, directory path, or OST-on-a-page .md file')
+  .action((arg) => show(resolveSpace(arg, loadConfig())));
+
+program
+  .command('dump')
+  .description('Dump parsed OST nodes as JSON')
+  .argument('<space-dir-or-file>', 'Space alias, directory path, or OST-on-a-page .md file')
+  .action((arg) => dump(resolveSpace(arg, loadConfig())));
 
 program
   .command('template-sync')

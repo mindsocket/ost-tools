@@ -130,11 +130,11 @@ export function readOstPage(filePath: string): OstPageReadResult {
 
   const nodes: OstNode[] = [];
 
+  // Internal preamble content target — not returned as a node.
   const rootNode: OstNode = {
     label: filePath,
     data: { ...frontmatter, type: 'ost_on_a_page' },
   };
-  nodes.push(rootNode);
 
   const tree = unified()
     .use(remarkParse)
