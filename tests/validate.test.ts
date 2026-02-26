@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeAll } from 'bun:test';
-import { join } from 'path';
-import { readFileSync } from 'fs';
+import { beforeAll, describe, expect, it } from 'bun:test';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import Ajv from 'ajv';
-import { readSpace } from '../src/read-space.js';
 import { readOstPage } from '../src/read-ost-page.js';
+import { readSpace } from '../src/read-space.js';
 import type { OstNode } from '../src/types.js';
 
 const SCHEMA_PATH = join(import.meta.dir, '../schema.json');
@@ -17,14 +17,14 @@ const validateNode = ajv.compile(schema);
 
 // Inline ref-check helper — mirrors the logic in validate.ts
 function checkRefErrors(nodes: OstNode[]): Array<{ file: string; parent: string }> {
-  const titles = new Set(nodes.map(n => n.label.replace(/\.md$/, '')));
+  const titles = new Set(nodes.map((n) => n.label.replace(/\.md$/, '')));
   return nodes
-    .filter(n => n.data.parent)
-    .filter(n => {
+    .filter((n) => n.data.parent)
+    .filter((n) => {
       const parentTitle = (n.data.parent as string).slice(2, -2);
       return !titles.has(parentTitle);
     })
-    .map(n => ({ file: n.label, parent: n.data.parent as string }));
+    .map((n) => ({ file: n.label, parent: n.data.parent as string }));
 }
 
 describe('Schema validation', () => {
@@ -70,26 +70,26 @@ describe('Schema validation', () => {
     });
 
     it('missing-status.md fails schema validation (no status field)', () => {
-      const node = nodes.find(n => n.label === 'missing-status.md');
+      const node = nodes.find((n) => n.label === 'missing-status.md');
       expect(node).toBeDefined();
-      expect(validateNode(node!.data)).toBe(false);
+      expect(validateNode(node?.data)).toBe(false);
     });
 
     it('vision-with-parent.md fails schema validation (vision forbids parent)', () => {
-      const node = nodes.find(n => n.label === 'vision-with-parent.md');
+      const node = nodes.find((n) => n.label === 'vision-with-parent.md');
       expect(node).toBeDefined();
-      expect(validateNode(node!.data)).toBe(false);
+      expect(validateNode(node?.data)).toBe(false);
     });
 
     it('dangling-parent.md passes schema validation (ref is a separate check)', () => {
-      const node = nodes.find(n => n.label === 'dangling-parent.md');
+      const node = nodes.find((n) => n.label === 'dangling-parent.md');
       expect(node).toBeDefined();
-      expect(validateNode(node!.data)).toBe(true);
+      expect(validateNode(node?.data)).toBe(true);
     });
 
     it('detects dangling parent ref error for Nonexistent Node', () => {
       const refErrors = checkRefErrors(nodes);
-      expect(refErrors.some(e => e.parent === '[[Nonexistent Node]]')).toBe(true);
+      expect(refErrors.some((e) => e.parent === '[[Nonexistent Node]]')).toBe(true);
     });
   });
 
@@ -99,7 +99,14 @@ describe('Schema validation', () => {
     });
 
     it('rejects vision with a parent field', () => {
-      expect(validateNode({ title: 'V', type: 'vision', status: 'active', parent: '[[Y]]' })).toBe(false);
+      expect(
+        validateNode({
+          title: 'V',
+          type: 'vision',
+          status: 'active',
+          parent: '[[Y]]',
+        }),
+      ).toBe(false);
     });
 
     it('rejects an unknown status enum value', () => {
@@ -107,15 +114,36 @@ describe('Schema validation', () => {
     });
 
     it('rejects priority p5 (not in enum)', () => {
-      expect(validateNode({ title: 'G', type: 'goal', status: 'active', priority: 'p5' })).toBe(false);
+      expect(
+        validateNode({
+          title: 'G',
+          type: 'goal',
+          status: 'active',
+          priority: 'p5',
+        }),
+      ).toBe(false);
     });
 
     it('rejects impact score greater than 5', () => {
-      expect(validateNode({ title: 'O', type: 'opportunity', status: 'active', impact: 6 })).toBe(false);
+      expect(
+        validateNode({
+          title: 'O',
+          type: 'opportunity',
+          status: 'active',
+          impact: 6,
+        }),
+      ).toBe(false);
     });
 
     it('rejects parent that is not a wikilink', () => {
-      expect(validateNode({ title: 'M', type: 'mission', status: 'active', parent: 'Not A Wikilink' })).toBe(false);
+      expect(
+        validateNode({
+          title: 'M',
+          type: 'mission',
+          status: 'active',
+          parent: 'Not A Wikilink',
+        }),
+      ).toBe(false);
     });
   });
 });

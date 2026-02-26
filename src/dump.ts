@@ -1,6 +1,6 @@
-import { statSync } from 'fs';
-import { readSpace } from './read-space.js';
+import { statSync } from 'node:fs';
 import { readOstPage } from './read-ost-page.js';
+import { readSpace } from './read-space.js';
 
 export async function dump(path: string) {
   if (statSync(path).isFile()) {

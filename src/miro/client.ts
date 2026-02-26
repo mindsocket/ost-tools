@@ -55,7 +55,7 @@ export class MiroClient {
       if (res.status === 429) {
         const retryAfter = parseInt(res.headers.get('Retry-After') ?? '2', 10);
         if (attempt < MAX_RETRIES) {
-          await new Promise(r => setTimeout(r, retryAfter * 1000));
+          await new Promise((r) => setTimeout(r, retryAfter * 1000));
           continue;
         }
       }
@@ -68,7 +68,7 @@ export class MiroClient {
         const text = await res.text();
         lastError = new Error(`Miro API ${method} ${path}: ${res.status} ${text}`);
         if (attempt < MAX_RETRIES && res.status >= 500) {
-          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+          await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
           continue;
         }
         throw lastError;
@@ -92,10 +92,13 @@ export class MiroClient {
     return this.request<MiroCard>('POST', '/cards', payload);
   }
 
-  async updateCard(id: string, payload: {
-    data?: { title?: string; description?: string };
-    style?: { cardTheme?: string };
-  }): Promise<MiroCard> {
+  async updateCard(
+    id: string,
+    payload: {
+      data?: { title?: string; description?: string };
+      style?: { cardTheme?: string };
+    },
+  ): Promise<MiroCard> {
     return this.request<MiroCard>('PATCH', `/cards/${id}`, payload);
   }
 
@@ -104,11 +107,15 @@ export class MiroClient {
   }
 
   // Connectors
-  async createConnector(startId: string, endId: string, style?: {
-    strokeColor?: string;
-    strokeStyle?: string;
-    strokeWidth?: string;
-  }): Promise<MiroConnector> {
+  async createConnector(
+    startId: string,
+    endId: string,
+    style?: {
+      strokeColor?: string;
+      strokeStyle?: string;
+      strokeWidth?: string;
+    },
+  ): Promise<MiroConnector> {
     return this.request<MiroConnector>('POST', '/connectors', {
       startItem: { id: startId, snapTo: 'auto' },
       endItem: { id: endId, snapTo: 'auto' },
@@ -155,7 +162,7 @@ export class MiroClient {
 
   async getFrame(frameId: string): Promise<MiroFrame | undefined> {
     const frames = await this.getFrames();
-    return frames.find(f => f.id === frameId);
+    return frames.find((f) => f.id === frameId);
   }
 
   // Items in frame

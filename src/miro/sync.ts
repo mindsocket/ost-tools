@@ -1,12 +1,12 @@
-import { statSync } from 'fs';
-import { readSpace } from '../read-space.js';
-import { readOstPage } from '../read-ost-page.js';
+import { statSync } from 'node:fs';
 import { loadConfig, resolveSpacePath, updateSpaceField } from '../config.js';
-import { MiroClient, MiroNotFoundError } from './client.js';
-import { loadCache, saveCache, computeNodeHash, computeMiroCardHash } from './cache.js';
-import { buildCardTitle, buildCardDescription, getCardColor } from './styles.js';
-import { layoutNewCards, CARD_WIDTH } from './layout.js';
+import { readOstPage } from '../read-ost-page.js';
+import { readSpace } from '../read-space.js';
 import type { OstNode } from '../types.js';
+import { computeMiroCardHash, computeNodeHash, loadCache, saveCache } from './cache.js';
+import { MiroClient, MiroNotFoundError } from './client.js';
+import { CARD_WIDTH, layoutNewCards } from './layout.js';
+import { buildCardDescription, buildCardTitle, getCardColor } from './styles.js';
 
 interface SyncOptions {
   newFrame?: string;
@@ -28,10 +28,12 @@ export async function miroSync(spaceOrPath: string, options: SyncOptions): Promi
 
   // 1. Resolve space and board
   const config = loadConfig();
-  const space = config.spaces.find(s => s.alias === spaceOrPath);
+  const space = config.spaces.find((s) => s.alias === spaceOrPath);
 
   if (!space) {
-    console.error(`"${spaceOrPath}" is not a known space alias. miro-sync requires a configured space with miroBoardId.`);
+    console.error(
+      `"${spaceOrPath}" is not a known space alias. miro-sync requires a configured space with miroBoardId.`,
+    );
     process.exit(1);
   }
 
@@ -121,11 +123,17 @@ export async function miroSync(spaceOrPath: string, options: SyncOptions): Promi
   for (const item of frameItems) {
     if (item.type === 'card' && item.position && item.data) {
       boardCardIds.add(item.id);
-      miroCardData.set(item.id, { title: item.data.title, description: item.data.description ?? '' });
+      miroCardData.set(item.id, {
+        title: item.data.title,
+        description: item.data.description ?? '',
+      });
       // Find which cached node this card belongs to
       for (const [title, cached] of Object.entries(cache.nodes)) {
         if (cached.miroCardId === item.id) {
-          existingPositions.set(title, { x: item.position.x, y: item.position.y });
+          existingPositions.set(title, {
+            x: item.position.x,
+            y: item.position.y,
+          });
           verifiedCardIds.set(title, item.id);
         }
       }
@@ -222,14 +230,20 @@ export async function miroSync(spaceOrPath: string, options: SyncOptions): Promi
     if (options.verbose) console.log(`Creating card: "${title}" (${type}) at (${pos.x}, ${pos.y})`);
 
     const card = await client.createCard({
-      data: { title: buildCardTitle(node), description: buildCardDescription(node) },
+      data: {
+        title: buildCardTitle(node),
+        description: buildCardDescription(node),
+      },
       style: { cardTheme: getCardColor(type) },
       position: { x: pos.x, y: pos.y, origin: 'center' },
       parent: { id: frameId },
       geometry: { width: CARD_WIDTH },
     });
 
-    cache.nodes[title] = { miroCardId: card.id, contentHash: computeNodeHash(node) };
+    cache.nodes[title] = {
+      miroCardId: card.id,
+      contentHash: computeNodeHash(node),
+    };
     verifiedCardIds.set(title, card.id); // Add to verified set so connectors can use it
     createdCount++;
   }
@@ -249,9 +263,15 @@ export async function miroSync(spaceOrPath: string, options: SyncOptions): Promi
 
     try {
       await client.updateCard(cardId, {
-        data: { title: buildCardTitle(node), description: buildCardDescription(node) },
+        data: {
+          title: buildCardTitle(node),
+          description: buildCardDescription(node),
+        },
       });
-      cache.nodes[title] = { miroCardId: cardId, contentHash: computeNodeHash(node) };
+      cache.nodes[title] = {
+        miroCardId: cardId,
+        contentHash: computeNodeHash(node),
+      };
       updatedCount++;
     } catch (e) {
       if (e instanceof MiroNotFoundError) {
@@ -259,13 +279,19 @@ export async function miroSync(spaceOrPath: string, options: SyncOptions): Promi
         console.log(`Card "${title}" missing from Miro, recreating...`);
         const type = node.data.type as string;
         const card = await client.createCard({
-          data: { title: buildCardTitle(node), description: buildCardDescription(node) },
+          data: {
+            title: buildCardTitle(node),
+            description: buildCardDescription(node),
+          },
           style: { cardTheme: getCardColor(type) },
           position: { x: 0, y: 0, origin: 'center' },
           parent: { id: frameId },
           geometry: { width: CARD_WIDTH },
         });
-        cache.nodes[title] = { miroCardId: card.id, contentHash: computeNodeHash(node) };
+        cache.nodes[title] = {
+          miroCardId: card.id,
+          contentHash: computeNodeHash(node),
+        };
         createdCount++;
       } else {
         throw e;
@@ -300,9 +326,7 @@ export async function miroSync(spaceOrPath: string, options: SyncOptions): Promi
   }
 
   // Find existing connectors that we created (from cache)
-  const existingConnectorIds = new Set(
-    Object.values(cache.connectors).map(c => c.miroConnectorId),
-  );
+  const existingConnectorIds = new Set(Object.values(cache.connectors).map((c) => c.miroConnectorId));
 
   // Verify our cached connectors still exist and connect our cards
   const allConnectors = await client.getConnectors();
@@ -323,12 +347,10 @@ export async function miroSync(spaceOrPath: string, options: SyncOptions): Promi
   // Create missing connectors
   for (const [key, { parentTitle, childTitle }] of desiredEdges) {
     if (!validCachedEdges.has(key)) {
-      if (options.verbose || options.dryRun) console.log(`${prefix}Creating connector: ${parentTitle} -> ${childTitle}`);
+      if (options.verbose || options.dryRun)
+        console.log(`${prefix}Creating connector: ${parentTitle} -> ${childTitle}`);
       if (!options.dryRun) {
-        const conn = await client.createConnector(
-          verifiedCardIds.get(parentTitle)!,
-          verifiedCardIds.get(childTitle)!,
-        );
+        const conn = await client.createConnector(verifiedCardIds.get(parentTitle)!, verifiedCardIds.get(childTitle)!);
         cache.connectors[key] = { miroConnectorId: conn.id };
       }
       connectorsCreated++;

@@ -1,6 +1,6 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
-import { join } from 'path';
-import { createHash } from 'crypto';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { OstNode } from '../types.js';
 
 export interface CachedNode {
@@ -17,7 +17,7 @@ export interface SyncCache {
   frameId: string;
   spaceAlias?: string;
   lastSync: string;
-  nodes: Record<string, CachedNode>;       // keyed by node title
+  nodes: Record<string, CachedNode>; // keyed by node title
   connectors: Record<string, CachedConnector>; // keyed by "parent→child"
 }
 
@@ -44,7 +44,7 @@ export function loadCache(boardId: string, frameId: string): SyncCache {
 export function saveCache(cache: SyncCache): void {
   mkdirSync(CACHE_DIR, { recursive: true });
   const path = cachePath(cache.boardId, cache.frameId);
-  writeFileSync(path, JSON.stringify(cache, null, 2) + '\n');
+  writeFileSync(path, `${JSON.stringify(cache, null, 2)}\n`);
 }
 
 export function computeNodeHash(node: OstNode): string {
@@ -61,7 +61,8 @@ export function computeNodeHash(node: OstNode): string {
 
 /** Normalize HTML entities in text (e.g., &amp; → &) */
 function normalizeHtmlEntities(text: string): string {
-  return text.replace(/&amp;/g, '&')
+  return text
+    .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')

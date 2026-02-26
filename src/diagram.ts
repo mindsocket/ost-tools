@@ -1,7 +1,7 @@
-import { readFileSync, writeFileSync, statSync } from 'fs';
+import { readFileSync, statSync, writeFileSync } from 'node:fs';
 import Ajv from 'ajv';
-import { readSpace } from './read-space.js';
 import { readOstPage } from './read-ost-page.js';
+import { readSpace } from './read-space.js';
 import type { OstNode } from './types.js';
 
 interface DiagramNode {
@@ -42,9 +42,7 @@ export async function diagram(path: string, options: { schema: string; output?: 
       continue;
     }
 
-    const parent = node.data.parent
-      ? parseWikilink(node.data.parent as string)
-      : undefined;
+    const parent = node.data.parent ? parseWikilink(node.data.parent as string) : undefined;
 
     nodes.push({
       id: node.data.title as string,
@@ -65,8 +63,8 @@ export async function diagram(path: string, options: { schema: string; output?: 
   let mmd = 'graph TD\n';
 
   // Find roots (no parent) and orphans
-  const roots = nodes.filter(n => !n.parent);
-  const orphans = roots.filter(n => n.type !== 'vision');
+  const roots = nodes.filter((n) => !n.parent);
+  const orphans = roots.filter((n) => n.type !== 'vision');
 
   // Add styling
   mmd += '  classDef vision fill:#ff9999,stroke:#ff0000,stroke-width:2px\n';
@@ -125,6 +123,6 @@ export async function diagram(path: string, options: { schema: string; output?: 
   }
   if (invalid.length > 0) {
     console.error(`   Invalid (skipped): ${invalid.length}`);
-    invalid.forEach(f => console.error(`      ${f}`));
+    for (const f of invalid) console.error(`      ${f}`);
   }
 }

@@ -27,7 +27,7 @@ export function buildCardTitle(node: OstNode): string {
   const status = node.data.status as string | undefined;
   const priority = node.data.priority as string | undefined;
 
-  const icon = status ? STATUS_ICONS[status] ?? status : '';
+  const icon = status ? (STATUS_ICONS[status] ?? status) : '';
   const prefix = icon ? `[${icon}] ` : '';
   const suffix = priority ? ` (${priority})` : '';
 

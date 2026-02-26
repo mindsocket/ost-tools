@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeAll } from 'bun:test';
-import { join } from 'path';
+import { beforeAll, describe, expect, it } from 'bun:test';
+import { join } from 'node:path';
 import { readSpace } from '../src/read-space.js';
 import type { SpaceReadResult } from '../src/types.js';
 
@@ -19,7 +19,7 @@ describe('readSpace', () => {
     });
 
     it('injects title from filename', () => {
-      const vision = result.nodes.find(n => n.label === 'Personal Vision.md');
+      const vision = result.nodes.find((n) => n.label === 'Personal Vision.md');
       expect(vision?.data.title).toBe('Personal Vision');
     });
 
@@ -32,15 +32,15 @@ describe('readSpace', () => {
     });
 
     it('skipped files do not appear in nodes', () => {
-      expect(result.nodes.every(n => n.label !== 'no-frontmatter.md')).toBe(true);
+      expect(result.nodes.every((n) => n.label !== 'no-frontmatter.md')).toBe(true);
     });
 
     it('nonOst files do not appear in nodes', () => {
-      expect(result.nodes.every(n => n.label !== 'meeting-notes.md')).toBe(true);
+      expect(result.nodes.every((n) => n.label !== 'meeting-notes.md')).toBe(true);
     });
 
     it('preserves numeric frontmatter fields on Technical Skills', () => {
-      const ts = result.nodes.find(n => n.label === 'Technical Skills.md');
+      const ts = result.nodes.find((n) => n.label === 'Technical Skills.md');
       expect(ts?.data.impact).toBe(4);
       expect(ts?.data.feasibility).toBe(3);
       expect(ts?.data.resources).toBe(2);
@@ -48,7 +48,7 @@ describe('readSpace', () => {
     });
 
     it('excludes Community OST.md by default (type: ost_on_a_page)', () => {
-      expect(result.nodes.every(n => n.label !== 'Community OST.md')).toBe(true);
+      expect(result.nodes.every((n) => n.label !== 'Community OST.md')).toBe(true);
     });
 
     it('Community OST.md does not appear in skipped or nonOst', () => {
@@ -59,7 +59,7 @@ describe('readSpace', () => {
 
   it('includes ost_on_a_page nodes when includePageFiles is true', async () => {
     const result = await readSpace(VALID_DIR, { includePageFiles: true });
-    expect(result.nodes.find(n => n.label === 'Community OST.md')).toBeDefined();
+    expect(result.nodes.find((n) => n.label === 'Community OST.md')).toBeDefined();
     expect(result.nodes).toHaveLength(6);
   });
 

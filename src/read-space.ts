@@ -1,13 +1,10 @@
+import { readFileSync } from 'node:fs';
+import { basename, join } from 'node:path';
 import { glob } from 'glob';
-import { readFileSync } from 'fs';
-import { basename, join } from 'path';
 import matter from 'gray-matter';
 import type { OstNode, SpaceReadResult } from './types.js';
 
-export async function readSpace(
-  directory: string,
-  options?: { includePageFiles?: boolean },
-): Promise<SpaceReadResult> {
+export async function readSpace(directory: string, options?: { includePageFiles?: boolean }): Promise<SpaceReadResult> {
   const files = await glob('**/*.md', { cwd: directory, absolute: false });
   const nodes: OstNode[] = [];
   const skipped: string[] = [];

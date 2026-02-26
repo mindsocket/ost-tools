@@ -46,7 +46,7 @@ export function layoutNewCards(
   for (const node of newNodes) {
     const depth = TYPE_DEPTH[node.data.type as string] ?? 4;
     if (!byDepth.has(depth)) byDepth.set(depth, []);
-    byDepth.get(depth)!.push(node);
+    byDepth.get(depth)?.push(node);
   }
 
   const positions = new Map<string, { x: number; y: number }>();
@@ -74,10 +74,10 @@ export function layoutNewCards(
   }
 
   const bounds = {
-    minX: Math.min(...allPositions.map(p => p.x - CARD_WIDTH / 2)) - FRAME_PADDING,
-    minY: Math.min(...allPositions.map(p => p.y - CARD_HEIGHT / 2)) - FRAME_PADDING,
-    maxX: Math.max(...allPositions.map(p => p.x + CARD_WIDTH / 2)) + FRAME_PADDING,
-    maxY: Math.max(...allPositions.map(p => p.y + CARD_HEIGHT / 2)) + FRAME_PADDING,
+    minX: Math.min(...allPositions.map((p) => p.x - CARD_WIDTH / 2)) - FRAME_PADDING,
+    minY: Math.min(...allPositions.map((p) => p.y - CARD_HEIGHT / 2)) - FRAME_PADDING,
+    maxX: Math.max(...allPositions.map((p) => p.x + CARD_WIDTH / 2)) + FRAME_PADDING,
+    maxY: Math.max(...allPositions.map((p) => p.y + CARD_HEIGHT / 2)) + FRAME_PADDING,
   };
 
   return { positions, bounds };

@@ -1,13 +1,13 @@
-import { readFileSync, statSync } from 'fs';
-import Ajv from 'ajv';
-import { readSpace } from './read-space.js';
+import { readFileSync, statSync } from 'node:fs';
+import Ajv, { type ErrorObject } from 'ajv';
 import { readOstPage } from './read-ost-page.js';
+import { readSpace } from './read-space.js';
 import type { OstNode } from './types.js';
 
 interface ValidationResult {
   schemaValidCount: number;
   schemaErrorCount: number;
-  schemaErrors: Array<{ file: string; errors: any[] }>;
+  schemaErrors: Array<{ file: string; errors: ErrorObject[] }>;
   refErrors: Array<{ file: string; parent: string; error: string }>;
   skipped: string[];
   nonOst: string[];
@@ -25,7 +25,9 @@ export async function validate(path: string, options: { schema: string }): Promi
   if (statSync(path).isFile()) {
     ({ nodes } = readOstPage(path));
   } else {
-    ({ nodes, skipped, nonOst } = await readSpace(path, { includePageFiles: true }));
+    ({ nodes, skipped, nonOst } = await readSpace(path, {
+      includePageFiles: true,
+    }));
   }
 
   const result: ValidationResult = {
@@ -52,9 +54,7 @@ export async function validate(path: string, options: { schema: string }): Promi
   }
 
   // Build index of all node labels (without .md extension)
-  const nodeIndex = new Map(
-    nodes.map(n => [n.label.replace(/\.md$/, ''), n])
-  );
+  const nodeIndex = new Map(nodes.map((n) => [n.label.replace(/\.md$/, ''), n]));
 
   function extractWikilinkFilename(wikilink: string): string {
     const cleaned = wikilink.replace(/^"|"$/g, '');
@@ -86,19 +86,19 @@ export async function validate(path: string, options: { schema: string }): Promi
 
   if (result.skipped.length > 0) {
     console.log(`\n⏭ Skipped files (no frontmatter):`);
-    result.skipped.forEach(f => console.log(`   ${f}`));
+    for (const f of result.skipped) console.log(`   ${f}`);
   }
 
   if (result.nonOst.length > 0) {
     console.log(`\n📄 Non-OST files (no type field):`);
-    result.nonOst.forEach(f => console.log(`   ${f}`));
+    for (const f of result.nonOst) console.log(`   ${f}`);
   }
 
   if (result.schemaErrors.length > 0) {
     console.log(`\n❌ Schema validation errors:`);
     result.schemaErrors.forEach(({ file, errors }) => {
       console.log(`\n   ${file}:`);
-      errors.forEach((err: any) => {
+      errors.forEach((err: ErrorObject) => {
         console.log(`      ${err.instancePath || 'root'}: ${err.message}`);
       });
     });

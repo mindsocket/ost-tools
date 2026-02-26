@@ -19,6 +19,6 @@ export interface OstPageReadResult {
 
 export interface SpaceReadResult {
   nodes: OstNode[];
-  skipped: string[];  // files with no frontmatter
-  nonOst: string[];   // files with frontmatter but no type field
+  skipped: string[]; // files with no frontmatter
+  nonOst: string[]; // files with frontmatter but no type field
 }

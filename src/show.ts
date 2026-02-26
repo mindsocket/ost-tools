@@ -1,6 +1,6 @@
-import { statSync } from 'fs';
-import { readSpace } from './read-space.js';
+import { statSync } from 'node:fs';
 import { readOstPage } from './read-ost-page.js';
+import { readSpace } from './read-space.js';
 import type { OstNode } from './types.js';
 
 export async function show(path: string) {

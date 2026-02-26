@@ -1,12 +1,12 @@
 #!/usr/bin/env bun
 import { Command } from 'commander';
-import { validate } from './validate.js';
-import { diagram } from './diagram.js';
-import { show } from './show.js';
-import { dump } from './dump.js';
-import { templateSync } from './template-sync.js';
-import { miroSync } from './miro/sync.js';
 import { loadConfig, resolveSchema, resolveSpacePath, resolveTemplateDir } from './config.js';
+import { diagram } from './diagram.js';
+import { dump } from './dump.js';
+import { miroSync } from './miro/sync.js';
+import { show } from './show.js';
+import { templateSync } from './template-sync.js';
+import { validate } from './validate.js';
 
 const program = new Command();
 
@@ -22,7 +22,10 @@ program
   .option('-s, --schema <path>', 'Path to JSON schema file')
   .action((spaceOrDir, options) => {
     const config = loadConfig();
-    validate(resolveSpacePath(spaceOrDir, config), { ...options, schema: resolveSchema(options.schema, config) });
+    validate(resolveSpacePath(spaceOrDir, config), {
+      ...options,
+      schema: resolveSchema(options.schema, config),
+    });
   });
 
 program
@@ -33,7 +36,10 @@ program
   .option('-s, --schema <path>', 'Path to JSON schema file')
   .action((spaceOrDir, options) => {
     const config = loadConfig();
-    diagram(resolveSpacePath(spaceOrDir, config), { ...options, schema: resolveSchema(options.schema, config) });
+    diagram(resolveSpacePath(spaceOrDir, config), {
+      ...options,
+      schema: resolveSchema(options.schema, config),
+    });
   });
 
 program
@@ -65,7 +71,10 @@ program
   .option('--dry-run', 'Preview changes without writing files')
   .action((templateDir, options) => {
     const config = loadConfig();
-    templateSync(resolveTemplateDir(templateDir, config), { ...options, schema: resolveSchema(options.schema, config) });
+    templateSync(resolveTemplateDir(templateDir, config), {
+      ...options,
+      schema: resolveSchema(options.schema, config),
+    });
   });
 
 program.parse();

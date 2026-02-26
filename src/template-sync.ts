@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { glob } from 'glob';
 import matter from 'gray-matter';
 import yaml from 'js-yaml';
@@ -6,24 +6,27 @@ import yaml from 'js-yaml';
 interface TypeVariant {
   required: string[];
   optional: string[];
-  properties: Record<string, any>;
-  example: Record<string, any>;
+  properties: Record<string, unknown>;
+  example: Record<string, string | number | boolean>;
 }
 
 // Fields derived from the filesystem — present at validation time but not written to frontmatter
 const DERIVED_FIELDS = new Set(['title', 'content']);
 
+// biome-ignore lint/suspicious/noExplicitAny: JSON schema objects are untyped by definition
 function resolveRef(propDef: any, schema: any): any {
   if (propDef?.$ref) {
     const path = (propDef.$ref as string).replace(/^#\//, '').split('/');
+    // biome-ignore lint/suspicious/noExplicitAny: JSON schema traversal
     return path.reduce((obj: any, key: string) => obj[key], schema);
   }
   return propDef;
 }
 
 // Merge properties from allOf sub-schemas into a single properties map
-function mergeAllOfProperties(variant: any, schema: any): Record<string, any> {
-  const merged: Record<string, any> = {};
+// biome-ignore lint/suspicious/noExplicitAny: JSON schema objects are untyped by definition
+function mergeAllOfProperties(variant: any, schema: any): Record<string, unknown> {
+  const merged: Record<string, unknown> = {};
   for (const sub of variant.allOf ?? []) {
     const resolved = resolveRef(sub, schema);
     Object.assign(merged, resolved.properties ?? {});
@@ -32,23 +35,25 @@ function mergeAllOfProperties(variant: any, schema: any): Record<string, any> {
   return merged;
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: JSON schema definition objects are untyped
 function enumPlaceholder(def: any): string {
   return def.enum.join('|');
 }
 
 function withEnumPlaceholders(
-  example: Record<string, any>,
-  properties: Record<string, any>,
-  schema: any
-): Record<string, any> {
+  example: Record<string, string | number | boolean>,
+  properties: Record<string, unknown>,
+  schema: unknown,
+): Record<string, string | number | boolean> {
   return Object.fromEntries(
     Object.entries(example).map(([key, value]) => {
       const def = resolveRef(properties[key], schema);
       return def?.enum ? [key, enumPlaceholder(def)] : [key, value];
-    })
+    }),
   );
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: JSON schema definition objects are untyped
 function commentedHint(fieldName: string, propDef: any, schema: any): string {
   const def = resolveRef(propDef, schema);
   let value: string;
@@ -64,6 +69,7 @@ function commentedHint(fieldName: string, propDef: any, schema: any): string {
   return `# ${fieldName}: ${value}`;
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: JSON schema root object is untyped
 function getTypeVariants(schema: any): Map<string, TypeVariant> {
   const map = new Map<string, TypeVariant>();
   for (const variant of schema.oneOf) {
@@ -71,24 +77,24 @@ function getTypeVariants(schema: any): Map<string, TypeVariant> {
     if (!typeName || typeName === 'dashboard' || typeName === 'ost_on_a_page') continue;
     if (!variant.examples?.[0]) continue;
 
-    const required = (variant.required as string[])
-      .filter((k: string) => k !== 'type' && !DERIVED_FIELDS.has(k));
+    const required = (variant.required as string[]).filter((k: string) => k !== 'type' && !DERIVED_FIELDS.has(k));
     const allProperties = Object.fromEntries(
-      Object.entries(mergeAllOfProperties(variant, schema))
-        .filter(([k]) => k !== 'type' && !DERIVED_FIELDS.has(k))
+      Object.entries(mergeAllOfProperties(variant, schema)).filter(([k]) => k !== 'type' && !DERIVED_FIELDS.has(k)),
     );
-    const optional = Object.keys(allProperties).filter(k => !required.includes(k));
-    const example = variant.examples[0] as Record<string, any>;
+    const optional = Object.keys(allProperties).filter((k) => !required.includes(k));
+    const example = variant.examples[0] as Record<string, string | number | boolean>;
 
-    map.set(typeName, { required, optional, properties: allProperties, example });
+    map.set(typeName, {
+      required,
+      optional,
+      properties: allProperties,
+      example,
+    });
   }
   return map;
 }
 
-export async function templateSync(
-  templateDir: string,
-  options: { schema: string; dryRun?: boolean }
-) {
+export async function templateSync(templateDir: string, options: { schema: string; dryRun?: boolean }) {
   const schema = JSON.parse(readFileSync(options.schema, 'utf-8'));
   const typeVariants = getTypeVariants(schema);
 
@@ -135,12 +141,10 @@ export async function templateSync(
     const exampleWithPlaceholders = withEnumPlaceholders(example, properties, schema);
     const frontmatterYaml = (yaml.dump(exampleWithPlaceholders, { lineWidth: -1 }) as string).trim();
     const hints = optional
-      .filter(field => !exampleKeys.has(field))
-      .map(field => commentedHint(field, properties[field], schema));
+      .filter((field) => !exampleKeys.has(field))
+      .map((field) => commentedHint(field, properties[field], schema));
 
-    const newFrontmatter = hints.length > 0
-      ? `${frontmatterYaml}\n${hints.join('\n')}`
-      : frontmatterYaml;
+    const newFrontmatter = hints.length > 0 ? `${frontmatterYaml}\n${hints.join('\n')}` : frontmatterYaml;
 
     const newContent = `---\n${newFrontmatter}\n---${body}`;
 
@@ -155,7 +159,7 @@ export async function templateSync(
     }
   }
 
-  console.log('\n' + '━'.repeat(50));
+  console.log(`\n${'━'.repeat(50)}`);
   if (dryRun) {
     console.log('No files modified (dry run)\n');
   } else {

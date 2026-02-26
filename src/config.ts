@@ -1,5 +1,5 @@
-import { readFileSync, writeFileSync, existsSync } from 'fs';
-import { join } from 'path';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import Ajv from 'ajv';
 
 const CONFIG_SCHEMA = {
@@ -63,13 +63,13 @@ export function loadConfig(): Config {
 
 /** Resolve alias-or-path to a filesystem path. Falls through if not an alias. */
 export function resolveSpacePath(aliasOrPath: string, config: Config): string {
-  const space = config.spaces.find(s => s.alias === aliasOrPath);
+  const space = config.spaces.find((s) => s.alias === aliasOrPath);
   return space ? space.path : aliasOrPath;
 }
 
 /** Get the full space config entry by alias. Throws if not found. */
 export function getSpaceConfig(alias: string, config: Config): SpaceConfig {
-  const space = config.spaces.find(s => s.alias === alias);
+  const space = config.spaces.find((s) => s.alias === alias);
   if (!space) {
     throw new Error(`Unknown space config: "${alias}". Check config.json.`);
   }
@@ -96,5 +96,5 @@ export function updateSpaceField(alias: string, field: keyof SpaceConfig, value:
   const config = loadConfig();
   const space = getSpaceConfig(alias, config);
   space[field] = value;
-  writeFileSync(configPath(), JSON.stringify(config, null, 2) + '\n');
+  writeFileSync(configPath(), `${JSON.stringify(config, null, 2)}\n`);
 }
