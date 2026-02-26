@@ -9,9 +9,11 @@
   },
   "scripts": {
     "validate": "bun run src/index.ts validate",
-    "diagram": "bun run src/index.ts diagram"
+    "diagram": "bun run src/index.ts diagram",
+    "test": "bun test"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.4",
     "@types/bun": "latest",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^25.2.3"

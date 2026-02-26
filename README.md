@@ -111,6 +111,9 @@ bun run src/index.ts validate personal
 
 # Run diagram command
 bun run src/index.ts diagram personal
+
+# Run tests, using a set of fixtures
+bun test
 ```
 
 ## Schema
