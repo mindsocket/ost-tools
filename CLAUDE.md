@@ -24,5 +24,10 @@ This project validates OST node markdown files against a JSON schema.
 - `config.json` — Space registry (alias → absolute path)
 - `schema.json` — Entity type definitions and validation rules
 
+## Testing
+
+- `bun test` — unit tests (fixtures in `tests/`)
+- `bun run smoke` — smoke tests that run `validate` against every space in `config.json` (`smoke/`)
+
 ## Hooks
 A Stop hook runs linting, autoformatting and tests. If it reports issues related to change you made, address them.

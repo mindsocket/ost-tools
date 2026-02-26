@@ -1,5 +1,5 @@
 import { statSync } from 'node:fs';
-import { readOstPage } from './read-ost-page.js';
+import { readOstOnAPage } from './read-ost-on-a-page.js';
 import { readSpace } from './read-space.js';
 import type { OstNode } from './types.js';
 
@@ -7,7 +7,7 @@ export async function show(path: string) {
   let nodes: OstNode[];
 
   if (statSync(path).isFile()) {
-    ({ nodes } = readOstPage(path));
+    ({ nodes } = readOstOnAPage(path));
   } else {
     ({ nodes } = await readSpace(path));
   }

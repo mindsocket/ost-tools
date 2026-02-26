@@ -10,9 +10,10 @@
   "scripts": {
     "validate": "bun run src/index.ts validate",
     "diagram": "bun run src/index.ts diagram",
-    "test": "bun test",
-    "lint": "biome check src/ tests/",
-    "lint:fix": "biome check --write src/ tests/"
+    "test": "bun test tests/",
+    "smoke": "bun test smoke/",
+    "lint": "biome check",
+    "lint:fix": "biome check --write"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.4",

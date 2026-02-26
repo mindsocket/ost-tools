@@ -14,7 +14,7 @@ export const DEFAULT_STATUS = 'identified';
 export interface StackEntry {
   depth: number;
   title: string;
-  /** Empty string marks an untyped heading placeholder (hybrid mode only). */
+  /** Empty string marks an untyped heading placeholder (typed-page mode, i.e. not ost_on_a_page). */
   ostType: string;
 }
 
@@ -163,7 +163,7 @@ export interface ExtractEmbeddedOptions {
   /**
    * OST type of the containing page.
    * - If set to a real OST type (not 'ost_on_a_page'): only headings with an explicit
-   *   `[type:: x]` field or an OST-type anchor become nodes (hybrid mode).
+   *   `[type:: x]` field or an OST-type anchor become nodes (typed-page mode).
    * - If 'ost_on_a_page' or undefined: all headings become nodes with depth-based
    *   type inference (classic ost_on_a_page behaviour).
    */
@@ -178,12 +178,12 @@ export interface ExtractEmbeddedResult {
 /**
  * Extract OST nodes from markdown body text.
  *
- * Shared by both readOstPage (single-file) and readSpace (directory) to find
- * embedded sub-nodes within a page's content.
+ * Shared by both readOstOnAPage (single ost_on_a_page file) and readSpace
+ * (directory) to find embedded sub-nodes within a page's content.
  */
 export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptions = {}): ExtractEmbeddedResult {
   const { pageTitle, pageType } = options;
-  const isHybridMode = pageType !== undefined && pageType !== 'ost_on_a_page';
+  const isOnAPageMode = pageType === undefined || pageType === 'ost_on_a_page';
 
   const nodes: OstNode[] = [];
   // Preamble/root content sink — never added to nodes
@@ -191,10 +191,10 @@ export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptio
 
   const tree = unified().use(remarkParse).use(remarkGfm).parse(body) as Root;
 
-  // In hybrid mode: stack starts with the page's own virtual entry (depth 0).
+  // In typed-page mode: stack starts with the page's own virtual entry (depth 0).
   // In ost_on_a_page mode: stack starts empty (first heading has no parent).
   const stack: StackEntry[] =
-    isHybridMode && pageTitle !== undefined ? [{ depth: 0, title: pageTitle, ostType: pageType }] : [];
+    !isOnAPageMode && pageTitle !== undefined ? [{ depth: 0, title: pageTitle, ostType: pageType }] : [];
 
   let currentContextNode: OstNode = rootNode;
 
@@ -264,8 +264,8 @@ export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptio
       const hasExplicitType = !!inlineFields.type;
       const hasImpliedType = !!anchorType;
 
-      if (isHybridMode && !hasExplicitType && !hasImpliedType) {
-        // Untyped heading in hybrid mode: update depth stack but don't create a node.
+      if (!isOnAPageMode && !hasExplicitType && !hasImpliedType) {
+        // Untyped heading in typed-page mode: update depth stack but don't create a node.
         while (stack.length > 0 && stack[stack.length - 1]!.depth >= depth) {
           stack.pop();
         }
@@ -274,7 +274,7 @@ export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptio
       }
 
       // In ost_on_a_page mode, enforce the no-level-skip rule.
-      if (!isHybridMode && stack.length > 0) {
+      if (isOnAPageMode && stack.length > 0) {
         const topDepth = stack[stack.length - 1]!.depth;
         if (depth > topDepth + 1) {
           throw new Error(`Heading level skipped: jumped from H${topDepth} to H${depth} at "${title}"`);

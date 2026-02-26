@@ -5,7 +5,10 @@ import matter from 'gray-matter';
 import { extractEmbeddedNodes } from './parse-embedded.js';
 import type { OstNode, SpaceReadResult } from './types.js';
 
-export async function readSpace(directory: string, options?: { includePageFiles?: boolean }): Promise<SpaceReadResult> {
+export async function readSpace(
+  directory: string,
+  options?: { includeOnAPageFiles?: boolean },
+): Promise<SpaceReadResult> {
   const files = await glob('**/*.md', { cwd: directory, absolute: false });
   const nodes: OstNode[] = [];
   const skipped: string[] = [];
@@ -25,7 +28,7 @@ export async function readSpace(directory: string, options?: { includePageFiles?
       continue;
     }
 
-    if (parsed.data.type === 'ost_on_a_page' && !options?.includePageFiles) {
+    if (parsed.data.type === 'ost_on_a_page' && !options?.includeOnAPageFiles) {
       continue;
     }
 
@@ -37,13 +40,16 @@ export async function readSpace(directory: string, options?: { includePageFiles?
       data: { title: fileBase, ...parsed.data },
     });
 
-    // Extract embedded child nodes from the page body (hybrid typed pages).
+    // Extract embedded child nodes from the page body (typed pages with embedded nodes).
     // ost_on_a_page files are already excluded above.
     if (pageType !== 'ost_on_a_page') {
       const { nodes: embedded } = extractEmbeddedNodes(parsed.content, {
         pageTitle: fileBase,
         pageType,
       });
+      for (const node of embedded) {
+        node.sourceFile = fileBase;
+      }
       nodes.push(...embedded);
     }
   }
