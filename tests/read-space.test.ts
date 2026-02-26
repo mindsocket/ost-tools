@@ -14,8 +14,8 @@ describe('readSpace', () => {
       result = await readSpace(VALID_DIR);
     });
 
-    it('returns 7 OST nodes (5 original + hybrid_vision + hybrid_solution)', () => {
-      expect(result.nodes).toHaveLength(7);
+    it('returns 9 OST nodes (5 original + hybrid_vision + 2 embedded + hybrid_solution)', () => {
+      expect(result.nodes).toHaveLength(9);
     });
 
     it('injects title from filename for file-based nodes', () => {
@@ -64,21 +64,44 @@ describe('readSpace', () => {
       result = await readSpace(VALID_DIR);
     });
 
-    it('includes hybrid_vision.md as a single node (no embedded extraction)', () => {
+    it('includes hybrid_vision.md as its own node', () => {
       const node = result.nodes.find((n) => n.label === 'hybrid_vision.md');
       expect(node).toBeDefined();
       expect(node?.data.type).toBe('vision');
       expect(node?.data.title).toBe('hybrid_vision');
     });
 
-    it('does not extract embedded nodes from hybrid files', () => {
-      expect(result.nodes.every((n) => !n.label.includes('#'))).toBe(true);
+    it('extracts embedded mission with plain title', () => {
+      const node = result.nodes.find((n) => n.label === 'Embedded Mission');
+      expect(node).toBeDefined();
+      expect(node?.data.type).toBe('mission');
+      expect(node?.data.title).toBe('Embedded Mission');
     });
 
-    it('includes hybrid_solution.md with parent pointing to hybrid_vision', () => {
-      const node = result.nodes.find((n) => n.label === 'hybrid_solution.md');
-      expect(node).toBeDefined();
+    it('embedded mission parent points to the vision file', () => {
+      const node = result.nodes.find((n) => n.label === 'Embedded Mission');
       expect(node?.data.parent).toBe('[[hybrid_vision]]');
+    });
+
+    it('stores anchor on embedded mission node', () => {
+      const node = result.nodes.find((n) => n.label === 'Embedded Mission');
+      expect(node?.data.anchor).toBe('embmission');
+    });
+
+    it('extracts nested embedded goal with plain title', () => {
+      const node = result.nodes.find((n) => n.label === 'Embedded Goal');
+      expect(node).toBeDefined();
+      expect(node?.data.type).toBe('goal');
+    });
+
+    it('embedded goal parent points to the embedded mission by plain title', () => {
+      const node = result.nodes.find((n) => n.label === 'Embedded Goal');
+      expect(node?.data.parent).toBe('[[Embedded Mission]]');
+    });
+
+    it('hybrid_solution.md references embedded goal as parent by plain title', () => {
+      const node = result.nodes.find((n) => n.label === 'hybrid_solution.md');
+      expect(node?.data.parent).toBe('[[Embedded Goal]]');
     });
   });
 

@@ -28,10 +28,7 @@ function checkRefErrors(nodes: OstNode[]): Array<{ file: string; parent: string 
   for (const n of nodes) {
     if (n.data.anchor) {
       const hashIdx = n.label.indexOf('#');
-      const fileKey =
-        hashIdx >= 0
-          ? n.label.slice(0, hashIdx).replace(/\.md$/, '')
-          : n.label.replace(/\.md$/, '');
+      const fileKey = hashIdx >= 0 ? n.label.slice(0, hashIdx).replace(/\.md$/, '') : n.label.replace(/\.md$/, '');
       index.add(`${fileKey}#^${n.data.anchor}`);
     }
   }
@@ -53,8 +50,8 @@ describe('Schema validation', () => {
       ({ nodes } = await readSpace(VALID_DIR));
     });
 
-    it('all 7 nodes pass schema validation', () => {
-      expect(nodes).toHaveLength(7);
+    it('all 9 nodes pass schema validation', () => {
+      expect(nodes).toHaveLength(9);
       for (const node of nodes) {
         expect(validateNode(node.data)).toBe(true);
       }
