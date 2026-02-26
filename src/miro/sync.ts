@@ -1,6 +1,6 @@
 import { statSync } from 'node:fs';
 import { loadConfig, resolveSpacePath, updateSpaceField } from '../config.js';
-import { readOstPage } from '../read-ost-page.js';
+import { readOstOnAPage } from '../read-ost-on-a-page.js';
 import { readSpace } from '../read-space.js';
 import type { OstNode } from '../types.js';
 import { computeMiroCardHash, computeNodeHash, loadCache, saveCache } from './cache.js';
@@ -56,7 +56,7 @@ export async function miroSync(spaceOrPath: string, options: SyncOptions): Promi
   let nodes: OstNode[];
 
   if (statSync(resolvedPath).isFile()) {
-    ({ nodes } = readOstPage(resolvedPath));
+    ({ nodes } = readOstOnAPage(resolvedPath));
   } else {
     ({ nodes } = await readSpace(resolvedPath));
   }

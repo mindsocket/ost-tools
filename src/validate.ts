@@ -1,6 +1,6 @@
 import { readFileSync, statSync } from 'node:fs';
 import Ajv, { type ErrorObject } from 'ajv';
-import { readOstPage } from './read-ost-page.js';
+import { readOstOnAPage } from './read-ost-on-a-page.js';
 import { readSpace } from './read-space.js';
 import type { OstNode } from './types.js';
 
@@ -14,26 +14,10 @@ interface ValidationResult {
 }
 
 /**
- * Convert a node label to the key used in the reference index.
- *
- * Handles both plain file labels and compound embedded-node labels:
- *   "Personal Vision.md"             → "Personal Vision"
- *   "Personal Vision.md#Our Mission" → "Personal Vision#Our Mission"
- *   "Our Mission"                    → "Our Mission"  (standalone / ost_on_a_page)
- */
-export function labelToKey(label: string): string {
-  const hashIdx = label.indexOf('#');
-  if (hashIdx >= 0) {
-    return label.slice(0, hashIdx).replace(/\.md$/, '') + label.slice(hashIdx);
-  }
-  return label.replace(/\.md$/, '');
-}
-
-/**
  * Extract the lookup key from a wikilink string such as:
  *   [[Personal Vision]]                → "Personal Vision"
  *   [[Personal Vision#Our Mission]]    → "Personal Vision#Our Mission"
- *   [[Personal Vision#^ourmission]]    → "Personal Vision#^ourmission"
+ *   [[vision_page#^ourmission]]        → "vision_page#^ourmission"
  */
 function wikilinkToKey(wikilink: string): string {
   // Strip surrounding quotes if present (YAML sometimes keeps them)
@@ -51,7 +35,7 @@ export async function validate(path: string, options: { schema: string }): Promi
   let nonOst: string[] = [];
 
   if (statSync(path).isFile()) {
-    ({ nodes } = readOstPage(path));
+    ({ nodes } = readOstOnAPage(path));
   } else {
     ({ nodes, skipped, nonOst } = await readSpace(path));
   }
@@ -79,17 +63,16 @@ export async function validate(path: string, options: { schema: string }): Promi
     }
   }
 
-  // Build index: primary key (title / filename#title) + anchor-based keys.
+  // Build index keyed by resolved title.
+  // File nodes: data.title is the filename without .md.
+  // Embedded nodes: data.title is the plain heading title.
+  // Anchor keys: "sourceFile#^anchor" for [[file#^anchor]] wikilinks.
   const nodeIndex = new Map<string, OstNode>();
   for (const n of nodes) {
-    const key = labelToKey(n.label);
-    nodeIndex.set(key, n);
+    nodeIndex.set(n.data.title as string, n);
 
-    // Also index by anchor so [[File#^anchorname]] resolves correctly.
-    if (n.data.anchor) {
-      const hashIdx = n.label.indexOf('#');
-      const fileKey = hashIdx >= 0 ? n.label.slice(0, hashIdx).replace(/\.md$/, '') : n.label.replace(/\.md$/, '');
-      nodeIndex.set(`${fileKey}#^${n.data.anchor}`, n);
+    if (n.data.anchor && n.sourceFile) {
+      nodeIndex.set(`${n.sourceFile}#^${n.data.anchor}`, n);
     }
   }
 

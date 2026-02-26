@@ -3,6 +3,11 @@ export interface OstNode {
   label: string;
   /** Schema-ready data: all fields including injected title */
   data: Record<string, unknown>;
+  /**
+   * For embedded nodes: the base filename (no .md)
+   * of the page they came from. Used to resolve [[file#^anchor]] parent refs.
+   */
+  sourceFile?: string;
 }
 
 export interface OstPageDiagnostics {
@@ -12,7 +17,7 @@ export interface OstPageDiagnostics {
   terminatedHeadings: string[];
 }
 
-export interface OstPageReadResult {
+export interface OstOnAPageReadResult {
   nodes: OstNode[];
   diagnostics: OstPageDiagnostics;
 }

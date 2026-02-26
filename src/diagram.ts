@@ -1,6 +1,6 @@
 import { readFileSync, statSync, writeFileSync } from 'node:fs';
 import Ajv from 'ajv';
-import { readOstPage } from './read-ost-page.js';
+import { readOstOnAPage } from './read-ost-on-a-page.js';
 import { readSpace } from './read-space.js';
 import type { OstNode } from './types.js';
 
@@ -28,7 +28,7 @@ export async function diagram(path: string, options: { schema: string; output?: 
   let nonOst: string[] = [];
 
   if (statSync(path).isFile()) {
-    ({ nodes: spaceNodes } = readOstPage(path));
+    ({ nodes: spaceNodes } = readOstOnAPage(path));
   } else {
     ({ nodes: spaceNodes, skipped, nonOst } = await readSpace(path));
   }

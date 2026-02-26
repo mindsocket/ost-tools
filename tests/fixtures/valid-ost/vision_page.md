@@ -1,7 +1,7 @@
 ---
 type: vision
 status: active
-summary: A hybrid vision page with embedded sub-nodes
+summary: A typed vision page with embedded sub-nodes
 ---
 
 The vision body content.
