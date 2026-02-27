@@ -3,6 +3,7 @@ import { basename, join } from 'node:path';
 import { glob } from 'glob';
 import matter from 'gray-matter';
 import { extractEmbeddedNodes } from './parse-embedded.js';
+import { resolveParentLinks } from './resolve-links.js';
 import type { OstNode, SpaceReadResult } from './types.js';
 
 export async function readSpace(
@@ -37,7 +38,8 @@ export async function readSpace(
 
     nodes.push({
       label: file,
-      data: { title: fileBase, ...parsed.data },
+      schemaData: { title: fileBase, ...parsed.data },
+      linkTargets: [fileBase],
     });
 
     // Extract embedded child nodes from the page body (typed pages with embedded nodes).
@@ -47,12 +49,10 @@ export async function readSpace(
         pageTitle: fileBase,
         pageType,
       });
-      for (const node of embedded) {
-        node.sourceFile = fileBase;
-      }
       nodes.push(...embedded);
     }
   }
 
+  resolveParentLinks(nodes);
   return { nodes, skipped, nonOst };
 }

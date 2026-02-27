@@ -10,6 +10,6 @@ The vision body content.
 
 The mission body content.
 
-### [type:: goal] Embedded Goal
+### [type:: goal] Embedded Goal ^embgoal
 
 The goal body content.

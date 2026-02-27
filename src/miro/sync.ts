@@ -14,11 +14,6 @@ interface SyncOptions {
   verbose?: boolean;
 }
 
-function parseWikilink(wikilink: string): string {
-  const match = wikilink.match(/^\[\[(.+)\]\]$/);
-  return match ? match[1]! : wikilink;
-}
-
 export async function miroSync(spaceOrPath: string, options: SyncOptions): Promise<void> {
   const token = process.env.MIRO_TOKEN;
   if (!token) {
@@ -163,7 +158,7 @@ export async function miroSync(spaceOrPath: string, options: SyncOptions): Promi
   let skippedCount = 0;
 
   for (const node of nodes) {
-    const title = node.data.title as string;
+    const title = node.schemaData.title as string;
     // Compute what we expect to be in Miro (using the same build functions)
     const expectedTitle = buildCardTitle(node);
     const expectedDesc = buildCardDescription(node);
@@ -206,8 +201,8 @@ export async function miroSync(spaceOrPath: string, options: SyncOptions): Promi
   // 7. Create new cards
   let createdCount = 0;
   for (const node of newNodes) {
-    const title = node.data.title as string;
-    const type = node.data.type as string;
+    const title = node.schemaData.title as string;
+    const type = node.schemaData.type as string;
     let pos = newPositions.get(title) ?? { x: 0, y: 0 };
 
     // Apply offset if we created a new frame (to center layout in frame)
@@ -251,7 +246,7 @@ export async function miroSync(spaceOrPath: string, options: SyncOptions): Promi
   // 8. Update changed cards
   let updatedCount = 0;
   for (const { node, cardId } of updatedNodes) {
-    const title = node.data.title as string;
+    const title = node.schemaData.title as string;
 
     if (options.dryRun) {
       console.log(`[dry-run] Update card: "${title}"`);
@@ -277,7 +272,7 @@ export async function miroSync(spaceOrPath: string, options: SyncOptions): Promi
       if (e instanceof MiroNotFoundError) {
         // Card was deleted from Miro — recreate it
         console.log(`Card "${title}" missing from Miro, recreating...`);
-        const type = node.data.type as string;
+        const type = node.schemaData.type as string;
         const card = await client.createCard({
           data: {
             title: buildCardTitle(node),
@@ -308,10 +303,9 @@ export async function miroSync(spaceOrPath: string, options: SyncOptions): Promi
   // Only include edges where both endpoints have verified cards on the board
   const desiredEdges = new Map<string, { parentTitle: string; childTitle: string }>();
   for (const node of nodes) {
-    const parentRaw = node.data.parent as string | undefined;
-    if (!parentRaw) continue;
-    const parentTitle = parseWikilink(parentRaw);
-    const childTitle = node.data.title as string;
+    const parentTitle = node.resolvedParent;
+    if (!parentTitle) continue;
+    const childTitle = node.schemaData.title as string;
     // Both endpoints must have verified cards on the board
     if (verifiedCardIds.has(parentTitle) && verifiedCardIds.has(childTitle)) {
       const key = `${parentTitle}\u2192${childTitle}`;

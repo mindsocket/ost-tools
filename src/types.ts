@@ -1,13 +1,12 @@
 export interface OstNode {
   /** Source identifier for error messages (filename or heading title) */
   label: string;
-  /** Schema-ready data: all fields including injected title */
-  data: Record<string, unknown>;
-  /**
-   * For embedded nodes: the base filename (no .md)
-   * of the page they came from. Used to resolve [[file#^anchor]] parent refs.
-   */
-  sourceFile?: string;
+  /** Fields that are validated by schema.json. */
+  schemaData: Record<string, unknown>;
+  /** Valid navigation targets this node can be linked to (wikilink key without [[ ]]). */
+  linkTargets: string[];
+  /** Resolved canonical parent title (derived from schemaData.parent + linkTargets). */
+  resolvedParent?: string;
 }
 
 export interface OstPageDiagnostics {

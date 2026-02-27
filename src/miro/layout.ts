@@ -44,7 +44,7 @@ export function layoutNewCards(
   // Group new nodes by depth
   const byDepth = new Map<number, OstNode[]>();
   for (const node of newNodes) {
-    const depth = TYPE_DEPTH[node.data.type as string] ?? 4;
+    const depth = TYPE_DEPTH[node.schemaData.type as string] ?? 4;
     if (!byDepth.has(depth)) byDepth.set(depth, []);
     byDepth.get(depth)?.push(node);
   }
@@ -59,7 +59,7 @@ export function layoutNewCards(
     let x = -totalWidth / 2 + CARD_WIDTH / 2;
 
     for (const node of nodes) {
-      const title = node.data.title as string;
+      const title = node.schemaData.title as string;
       positions.set(title, { x, y: rowY });
       x += CARD_WIDTH + H_GAP;
     }

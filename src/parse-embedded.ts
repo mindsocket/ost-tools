@@ -16,6 +16,8 @@ export interface StackEntry {
   title: string;
   /** Empty string marks an untyped heading placeholder (typed-page mode, i.e. not ost_on_a_page). */
   ostType: string;
+  /** Preferred wikilink key used when this heading acts as a parent. */
+  refTarget: string;
 }
 
 /** Extract [key:: value] bracketed inline fields, return cleaned text and fields. */
@@ -35,7 +37,7 @@ export function extractBracketedFields(text: string): {
 
 /**
  * Extract unbracketed dataview fields (key:: value on own line).
- * Keys must be identifier-style (letters, digits, hyphens, underscores — no spaces).
+ * Keys must be identifier-style (letters, digits, hyphens, underscores - no spaces).
  * Lines matching the pattern are consumed as fields; other lines kept as content.
  */
 export function extractUnbracketedFields(text: string): {
@@ -59,7 +61,7 @@ export function extractUnbracketedFields(text: string): {
 
 /**
  * Extract a trailing Obsidian block anchor from heading text.
- * e.g. "My Title ^anchor-id" → { cleanText: "My Title", anchor: "anchor-id" }
+ * e.g. "My Title ^anchor-id" -> { cleanText: "My Title", anchor: "anchor-id" }
  */
 export function extractAnchor(text: string): { cleanText: string; anchor?: string } {
   const match = text.match(/\s+\^([a-zA-Z0-9][a-zA-Z0-9_-]*)$/);
@@ -75,7 +77,7 @@ export function extractAnchor(text: string): { cleanText: string; anchor?: strin
 /**
  * If the anchor name exactly matches an OST type (or an OST type followed by digits),
  * return that type. Otherwise return undefined.
- * Examples: "mission" → "mission", "goal1" → "goal", "myanchor" → undefined
+ * Examples: "mission" -> "mission", "goal1" -> "goal", "myanchor" -> undefined
  */
 export function anchorToOstType(anchor: string): string | undefined {
   for (const type of OST_TYPES) {
@@ -87,6 +89,18 @@ export function anchorToOstType(anchor: string): string | undefined {
 }
 
 /**
+ * Turn a full heading string into an Obsidian section-target key component.
+ * - normalizes observed Obsidian separators (#, ^, :, \) to spaces
+ * - compresses whitespace runs to single spaces
+ */
+export function normalizeHeadingSectionTarget(rawHeadingText: string): string {
+  return rawHeadingText
+    .replace(/[#^:\\]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
  * Returns the default OST type for a new heading based on its parent's effective type.
  * The first heading in a document defaults to 'vision'; each child is the next in sequence.
  */
@@ -95,15 +109,15 @@ export function defaultOstType(stack: StackEntry[]): string {
   const parentType = stack[stack.length - 1]?.ostType;
   const idx = OST_TYPES.indexOf(parentType as OstType);
   if (idx === -1 || idx >= OST_TYPES.length - 1) {
-    throw new Error(`No OST type follows "${parentType}" — cannot determine type for child heading`);
+    throw new Error(`No OST type follows "${parentType}" - cannot determine type for child heading`);
   }
   return OST_TYPES[idx + 1]!;
 }
 
 function appendContent(node: OstNode, text: string): void {
   if (!text) return;
-  const existing = node.data.content as string | undefined;
-  node.data.content = existing ? `${existing}\n${text}` : text;
+  const existing = node.schemaData.content as string | undefined;
+  node.schemaData.content = existing ? `${existing}\n${text}` : text;
 }
 
 function processListItem(
@@ -112,7 +126,7 @@ function processListItem(
   contentTarget: OstNode,
   nodes: OstNode[],
   makeLabel: (title: string) => string,
-  makeParentRef: (title: string) => string,
+  buildLinkTargets: (title: string) => string[],
 ): void {
   const firstPara = item.children.find((c) => c.type === 'paragraph') as Paragraph | undefined;
 
@@ -129,23 +143,24 @@ function processListItem(
     const title = (dashIdx >= 0 ? cleanText.slice(0, dashIdx) : cleanText).trim();
     const summary = dashIdx >= 0 ? cleanText.slice(dashIdx + 3).trim() : undefined;
 
-    const data: Record<string, unknown> = {
+    const schemaData: Record<string, unknown> = {
       title,
       type: fields.type,
       status: DEFAULT_STATUS,
       ...fields,
     };
-    if (parentRef) data.parent = parentRef;
-    if (summary) data.summary = summary;
+    if (parentRef) schemaData.parent = parentRef;
+    if (summary) schemaData.summary = summary;
 
-    const newNode: OstNode = { label: makeLabel(title), data };
+    const linkTargets = buildLinkTargets(title);
+    const newNode: OstNode = { label: makeLabel(title), schemaData, linkTargets };
     nodes.push(newNode);
 
-    const nestedParentRef = makeParentRef(title);
+    const nestedParentRef = `[[${linkTargets[0] ?? title}]]`;
     for (const child of item.children) {
       if (child.type === 'list') {
         for (const subItem of (child as List).children) {
-          processListItem(subItem, nestedParentRef, newNode, nodes, makeLabel, makeParentRef);
+          processListItem(subItem, nestedParentRef, newNode, nodes, makeLabel, buildLinkTargets);
         }
       }
     }
@@ -186,15 +201,17 @@ export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptio
   const isOnAPageMode = pageType === undefined || pageType === 'ost_on_a_page';
 
   const nodes: OstNode[] = [];
-  // Preamble/root content sink — never added to nodes
-  const rootNode: OstNode = { label: '_root_', data: { type: 'ost_on_a_page' } };
+  // Preamble/root content sink - never added to nodes
+  const rootNode: OstNode = { label: '_root_', schemaData: { type: 'ost_on_a_page' }, linkTargets: [] };
 
   const tree = unified().use(remarkParse).use(remarkGfm).parse(body) as Root;
 
   // In typed-page mode: stack starts with the page's own virtual entry (depth 0).
   // In ost_on_a_page mode: stack starts empty (first heading has no parent).
   const stack: StackEntry[] =
-    !isOnAPageMode && pageTitle !== undefined ? [{ depth: 0, title: pageTitle, ostType: pageType }] : [];
+    !isOnAPageMode && pageTitle !== undefined
+      ? [{ depth: 0, title: pageTitle, ostType: pageType, refTarget: pageTitle }]
+      : [];
 
   let currentContextNode: OstNode = rootNode;
 
@@ -218,19 +235,35 @@ export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptio
   function currentParentRef(): string | undefined {
     for (let i = stack.length - 1; i >= 0; i--) {
       const entry = stack[i]!;
-      if (entry.ostType === '') continue; // untyped placeholder
-      if (entry.depth === 0) {
-        // The page itself is the parent
-        return pageTitle ? `[[${pageTitle}]]` : undefined;
-      }
-      // An embedded heading is the parent
-      return `[[${entry.title}]]`;
+      if (entry.ostType === '') continue;
+      return `[[${entry.refTarget}]]`;
     }
     return undefined;
   }
 
-  function makeParentRef(title: string): string {
-    return `[[${title}]]`;
+  function buildHeadingLinkTargets(rawHeadingText: string, title: string, anchor?: string): string[] {
+    if (!pageTitle) {
+      return [title];
+    }
+
+    const targets: string[] = [];
+
+    const sectionTarget = normalizeHeadingSectionTarget(rawHeadingText);
+    if (sectionTarget) {
+      targets.push(`${pageTitle}#${sectionTarget}`);
+    }
+
+    if (anchor) {
+      targets.push(`${pageTitle}#^${anchor}`);
+    }
+
+    return targets.length > 0 ? targets : [title];
+  }
+
+  function buildListItemLinkTargets(title: string): string[] {
+    if (!pageTitle) return [title];
+    const normalized = normalizeHeadingSectionTarget(title);
+    return normalized ? [`${pageTitle}#${normalized}`] : [title];
   }
 
   for (const child of tree.children) {
@@ -269,7 +302,7 @@ export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptio
         while (stack.length > 0 && stack[stack.length - 1]!.depth >= depth) {
           stack.pop();
         }
-        stack.push({ depth, title, ostType: '' });
+        stack.push({ depth, title, ostType: '', refTarget: title });
         continue;
       }
 
@@ -288,25 +321,27 @@ export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptio
       const type = inlineFields.type ?? anchorType ?? defaultOstType(stack);
       const parentRef = currentParentRef();
 
-      const data: Record<string, unknown> = {
+      const schemaData: Record<string, unknown> = {
         title,
         type,
         status: DEFAULT_STATUS,
         ...inlineFields,
       };
-      if (parentRef) data.parent = parentRef;
-      if (anchor) data.anchor = anchor;
+      if (parentRef) schemaData.parent = parentRef;
 
-      const headingNode: OstNode = { label: makeLabel(title), data };
+      const linkTargets = buildHeadingLinkTargets(rawText, title, anchor);
+      const headingNode: OstNode = { label: makeLabel(title), schemaData, linkTargets };
       nodes.push(headingNode);
       currentContextNode = headingNode;
-      stack.push({ depth, title, ostType: type });
+
+      const refTarget = linkTargets[0] ?? title;
+      stack.push({ depth, title, ostType: type, refTarget });
     } else if (parseState !== 'active') {
       diagnostics.preambleNodeCount++;
     } else if (child.type === 'list') {
       const parentRef = currentParentRef();
       for (const item of (child as List).children) {
-        processListItem(item, parentRef, currentContextNode, nodes, makeLabel, makeParentRef);
+        processListItem(item, parentRef, currentContextNode, nodes, makeLabel, buildListItemLinkTargets);
       }
     } else if (child.type === 'paragraph') {
       const rawText = mdastToString(child);
@@ -315,13 +350,14 @@ export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptio
 
       const allFields = { ...unbracketedFields, ...bracketedFields };
       if ('type' in allFields) {
+        const title = currentContextNode.schemaData.title as string | undefined;
         throw new Error(
-          `Type override via paragraph field is not supported at "${currentContextNode.data.title}". ` +
+          `Type override via paragraph field is not supported at "${title ?? currentContextNode.label}". ` +
             `Put [type:: ${allFields.type}] directly in the heading text.`,
         );
       }
 
-      Object.assign(currentContextNode.data, allFields);
+      Object.assign(currentContextNode.schemaData, allFields);
       if (remainingText) appendContent(currentContextNode, remainingText);
     } else if (child.type === 'code') {
       const code = child as Code;
@@ -331,10 +367,12 @@ export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptio
         if (Array.isArray(parsed)) {
           throw new Error(
             `YAML block must be an object (key-value properties for the current node), not an array. ` +
-              `Use typed bullets — e.g. "- [type:: solution] Title" — to define child nodes inline.`,
+              `Use typed bullets - e.g. "- [type:: solution] Title" - to define child nodes inline.`,
           );
-        } else if (parsed && typeof parsed === 'object') {
-          Object.assign(currentContextNode.data, parsed as Record<string, unknown>);
+        }
+
+        if (parsed && typeof parsed === 'object') {
+          Object.assign(currentContextNode.schemaData, parsed as Record<string, unknown>);
         } else {
           appendContent(currentContextNode, code.value);
         }

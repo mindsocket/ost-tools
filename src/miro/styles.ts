@@ -23,9 +23,9 @@ export function getCardColor(type: string): string {
 }
 
 export function buildCardTitle(node: OstNode): string {
-  const title = node.data.title as string;
-  const status = node.data.status as string | undefined;
-  const priority = node.data.priority as string | undefined;
+  const title = node.schemaData.title as string;
+  const status = node.schemaData.status as string | undefined;
+  const priority = node.schemaData.priority as string | undefined;
 
   const icon = status ? (STATUS_ICONS[status] ?? status) : '';
   const prefix = icon ? `[${icon}] ` : '';
@@ -37,15 +37,15 @@ export function buildCardTitle(node: OstNode): string {
 export function buildCardDescription(node: OstNode): string {
   const parts: string[] = [];
 
-  const type = node.data.type as string;
-  const status = node.data.status as string | undefined;
+  const type = node.schemaData.type as string;
+  const status = node.schemaData.status as string | undefined;
   parts.push(`Type: ${type}`);
   if (status) parts.push(`Status: ${status}`);
 
-  const summary = node.data.summary as string | undefined;
+  const summary = node.schemaData.summary as string | undefined;
   if (summary) parts.push(`\n${summary}`);
 
-  const content = node.data.content as string | undefined;
+  const content = node.schemaData.content as string | undefined;
   if (content) parts.push(`\n${content}`);
 
   return parts.join('\n');
