@@ -5,55 +5,45 @@ Opportunity Solution Tree validation and diagram generation tool.
 ## Installation
 
 ```bash
-bun install
+npm install -g ost-tools
 ```
 
 ## Concepts
 
 See [docs/concepts.md](docs/concepts.md) for the full terminology reference, including definitions of OST nodes, embedded nodes, spaces, schemas, rules, and more.
 
+## Configuration
 
-### Schemas
+`ost-tools` looks for its config file in this order:
 
-A JSON-schema file defines the set of entities that a space adheres to. This allows for customisation and extension.
+1. `$OST_TOOLS_CONFIG` — explicit path override
+2. `~/.config/ost-tools/config.json` (or `$XDG_CONFIG_HOME/ost-tools/config.json`)
+3. `./config.json` in the current working directory
 
-Currently a single schema is included that combines a basic vision/mission/goals hierarchy with a hierarchy _similar_ to Opportunity Solution Trees. It is designed to be a bit more flexible to allow rapid initial adoption. The plan is to extend the set of schemas available to include some more opinionated and strict examples, and to support composability.
+See `config.example.json` for the full structure. The config maps space aliases to paths, with optional Miro integration fields and global defaults.
 
 ### Spaces
 
-A space is a named OST directory registered in `config.json`. Spaces let you reference a tree by alias instead of path:
+A space is a named OST directory registered in the config. Spaces let you reference a tree by alias instead of path:
 
 ```bash
-bun run src/index.ts validate personal
+ost-tools validate personal
 ```
 
-`config.json` maps aliases to absolute paths, with optional Miro integration fields and global defaults:
+### Schemas
 
-```json
-{
-  "spaces": [
-    {
-      "alias": "personal",
-      "path": "/path/to/Personal/Opportunity Solution Tree",
-      "miroBoardId": "uXjVIaBoardId",
-      "miroFrameId": "3458764123456789"
-    }
-  ],
-  "schema": "/path/to/custom/schemas/my-schema.json",
-  "templateDir": "/path/to/Templates"
-}
-```
+A JSON schema file defines the set of entities a space adheres to, allowing customisation and extension.
 
-- `miroBoardId` / `miroFrameId` — required for `miro-sync` (frame ID is auto-saved after `--new-frame`)
-- `schema` — overrides schema path
-- `templateDir` — default template directory for `template-sync` (can omit the CLI argument)
+A single schema (`general`) is included, combining a basic vision/mission/goals hierarchy with a hierarchy loosely based on Opportunity Solution Trees. It is intentionally flexible to support rapid initial adoption.
+
+Schema resolution order: CLI `--schema` > space config `schema` > global config `schema` > bundled `schemas/general.json`
 
 ## Usage
 
 ### Validate OST nodes
 
 ```bash
-bun run src/index.ts validate <space-or-dir> [--schema path/to/my-schema.json]
+ost-tools validate <space-or-dir> [--schema path/to/my-schema.json]
 ```
 
 Validates markdown files against the OST JSON schema:
@@ -64,35 +54,35 @@ Validates markdown files against the OST JSON schema:
 ### Generate Mermaid diagram
 
 ```bash
-bun run src/index.ts diagram <space-or-dir> [--output path/to/output.mmd] [--schema path/to/my-schema.json]
+ost-tools diagram <space-or-dir> [--output path/to/output.mmd] [--schema path/to/my-schema.json]
 ```
 
-Generates Mermaid `graph TD` diagram from validated OST nodes:
+Generates a Mermaid `graph TD` diagram from validated OST nodes:
 - Uses parent→child relationships from wikilinks
-- Applies type-based styling (different colors per node type and status)
+- Applies type-based styling (different colours per node type and status)
 - Handles orphan nodes (no parent) as a separate cluster
 - Outputs to file or stdout
 
 ### Sync OST to Miro
 
 ```bash
-bun run src/index.ts miro-sync <space> [--new-frame <title>] [--dry-run] [--verbose]
+ost-tools miro-sync <space> [--new-frame <title>] [--dry-run] [--verbose]
 ```
 
 Syncs OST nodes to a Miro board as cards with connectors. Requires `MIRO_TOKEN` env var and `miroBoardId` set in the space's config entry.
 
-- `--new-frame <title>` — create a new frame on the board and sync into it; auto-saves the resulting `miroFrameId` back to `config.json`
+- `--new-frame <title>` — create a new frame on the board and sync into it; auto-saves the resulting `miroFrameId` back to the config file
 - `--dry-run` — show what would change without touching Miro
 - `--verbose` / `-v` — detailed per-card and per-connector output
 
-On subsequent runs, the cached `miroFrameId` is used automatically. Cards are color-coded by node type and linked by parent→child connectors. A local `.miro-cache/` directory tracks Miro IDs to enable incremental updates.
+On subsequent runs, the cached `miroFrameId` is used automatically. Cards are colour-coded by node type and linked by parent→child connectors. A local `.miro-cache/` directory tracks Miro IDs to enable incremental updates.
 
-Sync is one-way (OST → Miro) and scoped to a single frame. Only cards and connectors created by this tool within that frame are managed — everything else on the board is left untouched. Card content and connectors are overwritten or recreated to match the markdown source; any edits made directly in Miro to managed cards will be lost on the next sync. Existing card positions are not changed — you can freely change the tree's layout.
+Sync is one-way (OST → Miro) and scoped to a single frame. Only cards and connectors created by this tool within that frame are managed — everything else on the board is left untouched. Card content and connectors are overwritten or recreated to match the markdown source; any edits made directly in Miro to managed cards will be lost on the next sync. Existing card positions are not changed.
 
 ### Sync templates with schema
 
 ```bash
-bun run src/index.ts template-sync [template-dir] [--schema path/to/my-schema.json] [--dry-run]
+ost-tools template-sync [template-dir] [--schema path/to/my-schema.json] [--dry-run]
 ```
 
 Keeps Obsidian template files in sync with schema examples:
@@ -100,32 +90,23 @@ Keeps Obsidian template files in sync with schema examples:
 - Rewrites frontmatter from the schema's `examples` entry for that type
 - Adds commented hints for optional fields not in the example
 - `--dry-run` previews changes without writing files
-- `template-dir` can be omitted if `templateDir` is set in `config.json`
+- `template-dir` can be omitted if `templateDir` is set in the config
 
 ## Development
 
 ```bash
-# Run validate command
+# Run a command against a configured space
 bun run src/index.ts validate personal
 
-# Run diagram command
-bun run src/index.ts diagram personal
-
-# Run unit tests (fixtures in tests/)
+# Run unit tests
 bun run test
 
-# Run validation smoke tests against all locally configured spaces
+# Run smoke tests against all locally configured spaces
 bun run test:smoke
 
-# Run all tests
-bun run test:all
+# Build compiled output
+bun run build
 ```
-
-## Schema
-
-Schema files and composable parts of schemas live in `schemas/`. Additional schemas can be added and selected per-space or globally via `config.json`.
-
-Schema resolution order: (CLI `--schema` argument > space config `schema` > global config `schema` > `schemas/general.json` default)
 
 ## License
 

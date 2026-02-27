@@ -1,13 +1,20 @@
 {
   "name": "ost-tools",
   "version": "0.2.0",
+  "description": "Tools for working with Opportunity Solution Tree structures and other product management and strategy frameworks",
   "module": "src/index.ts",
   "type": "module",
-  "private": true,
+  "license": "MIT",
   "bin": {
-    "ost-tools": "src/index.ts"
+    "ost-tools": "dist/index.js"
   },
+  "files": [
+    "dist/",
+    "schemas/"
+  ],
   "scripts": {
+    "build": "bun build src/index.ts --outfile dist/index.js --target=node && sed -i '' '1s|^#!.*$|#!/usr/bin/env node|' dist/index.js && chmod +x dist/index.js",
+    "prepublishOnly": "bun run build",
     "validate": "bun run src/index.ts validate",
     "diagram": "bun run src/index.ts diagram",
     "test": "bun test tests/",

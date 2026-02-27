@@ -1,5 +1,7 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import Ajv, { type ValidateFunction } from 'ajv';
 
 const CONFIG_SCHEMA = {
@@ -41,8 +43,22 @@ export interface Config {
   templateDir?: string;
 }
 
+const packageDir = dirname(fileURLToPath(import.meta.url));
+
 function configPath(): string {
-  return join(import.meta.dir, '..', 'config.json');
+  if (process.env.OST_TOOLS_CONFIG) {
+    return process.env.OST_TOOLS_CONFIG;
+  }
+  const xdgBase = process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config');
+  const xdgPath = join(xdgBase, 'ost-tools', 'config.json');
+  if (existsSync(xdgPath)) {
+    return xdgPath;
+  }
+  const cwdPath = join(process.cwd(), 'config.json');
+  if (existsSync(cwdPath)) {
+    return cwdPath;
+  }
+  return xdgPath;
 }
 
 export function loadConfig(): Config {
@@ -80,7 +96,7 @@ export function getSpaceConfig(alias: string, config: Config): SpaceConfig {
 
 /** Resolve schema path: CLI arg > space-level config > global config > hardcoded default. */
 export function resolveSchema(cliArg: string | undefined, config: Config, space?: SpaceConfig): string {
-  return cliArg ?? space?.schema ?? config.schema ?? 'schemas/general.json';
+  return cliArg ?? space?.schema ?? config.schema ?? join(packageDir, '..', 'schemas', 'general.json');
 }
 
 /** Parsed JSON schema object — always a plain object (never a boolean schema). */
@@ -169,5 +185,6 @@ export function updateSpaceField(alias: string, field: keyof SpaceConfig, value:
   const config = loadConfig();
   const space = getSpaceConfig(alias, config);
   space[field] = value;
-  writeFileSync(configPath(), `${JSON.stringify(config, null, 2)}\n`);
+  const path = configPath();
+  writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`);
 }
