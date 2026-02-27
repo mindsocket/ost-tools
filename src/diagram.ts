@@ -12,12 +12,6 @@ interface DiagramNode {
   priority?: string;
 }
 
-// Parse [[wikilink]] to just the text inside
-function parseWikilink(wikilink: string): string {
-  const match = wikilink.match(/^\[\[(.+)\]\]$/);
-  return match ? match[1]! : wikilink;
-}
-
 export async function diagram(path: string, options: { schema: string; output?: string }): Promise<void> {
   const schema = JSON.parse(readFileSync(options.schema, 'utf-8'));
   const ajv = new Ajv();
@@ -36,20 +30,20 @@ export async function diagram(path: string, options: { schema: string; output?: 
   const invalid: string[] = [];
 
   for (const node of spaceNodes) {
-    const valid = validateFunc(node.data);
+    const valid = validateFunc(node.schemaData);
     if (!valid) {
       invalid.push(node.label);
       continue;
     }
 
-    const parent = node.data.parent ? parseWikilink(node.data.parent as string) : undefined;
+    const parent = node.resolvedParent;
 
     nodes.push({
-      id: node.data.title as string,
-      type: node.data.type as string,
-      status: node.data.status as string,
+      id: node.schemaData.title as string,
+      type: node.schemaData.type as string,
+      status: node.schemaData.status as string,
       parent,
-      priority: node.data.priority as string | undefined,
+      priority: node.schemaData.priority as string | undefined,
     });
   }
 

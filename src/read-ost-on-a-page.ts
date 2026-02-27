@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
+import { basename } from 'node:path';
 import matter from 'gray-matter';
 import { extractEmbeddedNodes } from './parse-embedded.js';
+import { resolveParentLinks } from './resolve-links.js';
 import type { OstOnAPageReadResult } from './types.js';
 
 export function readOstOnAPage(filePath: string): OstOnAPageReadResult {
@@ -15,6 +17,8 @@ export function readOstOnAPage(filePath: string): OstOnAPageReadResult {
     );
   }
 
-  const { nodes, diagnostics } = extractEmbeddedNodes(body);
+  const pageTitle = basename(filePath, '.md');
+  const { nodes, diagnostics } = extractEmbeddedNodes(body, { pageTitle, pageType: 'ost_on_a_page' });
+  resolveParentLinks(nodes);
   return { nodes, diagnostics };
 }

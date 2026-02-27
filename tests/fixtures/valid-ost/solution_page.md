@@ -1,5 +1,5 @@
 ---
 type: solution
 status: identified
-parent: "[[Embedded Goal]]"
+parent: "[[vision_page#^embgoal]]"
 ---

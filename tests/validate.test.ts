@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import Ajv from 'ajv';
 import { readOstOnAPage } from '../src/read-ost-on-a-page.js';
 import { readSpace } from '../src/read-space.js';
+import { resolveParentLinks } from '../src/resolve-links.js';
 import type { OstNode } from '../src/types.js';
 
 const SCHEMA_PATH = join(import.meta.dir, '../schema.json');
@@ -15,26 +16,18 @@ const schema = JSON.parse(readFileSync(SCHEMA_PATH, 'utf-8'));
 const ajv = new Ajv();
 const validateNode = ajv.compile(schema);
 
-/**
- * Inline ref-check helper — mirrors the logic in validate.ts.
- * Indexes by data.title (resolved title). Anchor refs use node.sourceFile.
- */
+/** Inline ref-check helper - mirrors the logic in validate.ts. */
 function checkRefErrors(nodes: OstNode[]): Array<{ file: string; parent: string }> {
-  const index = new Set(nodes.map((n) => n.data.title as string));
-
-  for (const n of nodes) {
-    if (n.data.anchor && n.sourceFile) {
-      index.add(`${n.sourceFile}#^${n.data.anchor}`);
-    }
-  }
+  const index = new Set(nodes.map((n) => n.schemaData.title as string));
 
   return nodes
-    .filter((n) => n.data.parent)
+    .filter((n) => n.schemaData.parent)
     .filter((n) => {
-      const parentKey = (n.data.parent as string).slice(2, -2);
+      const parentKey = n.resolvedParent;
+      if (!parentKey) return true;
       return !index.has(parentKey);
     })
-    .map((n) => ({ file: n.label, parent: n.data.parent as string }));
+    .map((n) => ({ file: n.label, parent: n.schemaData.parent as string }));
 }
 
 describe('Schema validation', () => {
@@ -48,7 +41,7 @@ describe('Schema validation', () => {
     it('all 12 nodes pass schema validation', () => {
       expect(nodes).toHaveLength(12);
       for (const node of nodes) {
-        expect(validateNode(node.data)).toBe(true);
+        expect(validateNode(node.schemaData)).toBe(true);
       }
     });
 
@@ -67,7 +60,7 @@ describe('Schema validation', () => {
     it('all nodes pass schema validation', () => {
       expect(nodes.length).toBeGreaterThan(0);
       for (const node of nodes) {
-        expect(validateNode(node.data)).toBe(true);
+        expect(validateNode(node.schemaData)).toBe(true);
       }
     });
   });
@@ -82,19 +75,19 @@ describe('Schema validation', () => {
     it('missing-status.md fails schema validation (no status field)', () => {
       const node = nodes.find((n) => n.label === 'missing-status.md');
       expect(node).toBeDefined();
-      expect(validateNode(node?.data)).toBe(false);
+      expect(validateNode(node?.schemaData)).toBe(false);
     });
 
     it('vision-with-parent.md fails schema validation (vision forbids parent)', () => {
       const node = nodes.find((n) => n.label === 'vision-with-parent.md');
       expect(node).toBeDefined();
-      expect(validateNode(node?.data)).toBe(false);
+      expect(validateNode(node?.schemaData)).toBe(false);
     });
 
     it('dangling-parent.md passes schema validation (ref is a separate check)', () => {
       const node = nodes.find((n) => n.label === 'dangling-parent.md');
       expect(node).toBeDefined();
-      expect(validateNode(node?.data)).toBe(true);
+      expect(validateNode(node?.schemaData)).toBe(true);
     });
 
     it('detects dangling parent ref error for Nonexistent Node', () => {
@@ -103,70 +96,116 @@ describe('Schema validation', () => {
     });
   });
 
-  describe('cross-file anchor ref resolution', () => {
-    it('resolves [[file#^anchor]] to the embedded node with that anchor', () => {
-      // Represents what readSpace produces from anchor_vision.md + a sibling file
+  describe('link-target parent resolution', () => {
+    it('resolves anchor/section wikilinks to canonical parent titles', () => {
       const nodes: OstNode[] = [
         {
           label: 'anchor_vision.md',
-          data: { title: 'anchor_vision', type: 'vision', status: 'active' },
-        },
-        {
-          label: 'Another Goal',
-          sourceFile: 'anchor_vision',
-          data: {
-            title: 'Another Goal',
-            type: 'goal',
-            status: 'identified',
-            anchor: 'goal1',
-            parent: '[[Our Mission]]',
-          },
+          schemaData: { title: 'anchor_vision', type: 'vision', status: 'active' },
+          linkTargets: ['anchor_vision'],
         },
         {
           label: 'Our Mission',
-          sourceFile: 'anchor_vision',
-          data: {
+          schemaData: {
             title: 'Our Mission',
             type: 'mission',
             status: 'identified',
-            anchor: 'mission',
             parent: '[[anchor_vision]]',
           },
+          linkTargets: ['anchor_vision#Our Mission mission', 'anchor_vision#^mission'],
         },
         {
-          label: 'some-solution.md',
-          data: {
-            title: 'some-solution',
+          label: 'Another Goal',
+          schemaData: {
+            title: 'Another Goal',
+            type: 'goal',
+            status: 'identified',
+            parent: '[[anchor_vision#^mission]]',
+          },
+          linkTargets: ['anchor_vision#Another Goal goal1', 'anchor_vision#^goal1'],
+        },
+        {
+          label: 'solution_page.md',
+          schemaData: {
+            title: 'solution_page',
             type: 'solution',
             status: 'identified',
             parent: '[[anchor_vision#^goal1]]',
           },
+          linkTargets: ['solution_page'],
         },
       ];
 
+      resolveParentLinks(nodes);
+
+      expect(nodes.find((n) => n.label === 'Another Goal')?.schemaData.parent).toBe('[[anchor_vision#^mission]]');
+      expect(nodes.find((n) => n.label === 'Another Goal')?.resolvedParent).toBe('Our Mission');
+      expect(nodes.find((n) => n.label === 'solution_page.md')?.schemaData.parent).toBe('[[anchor_vision#^goal1]]');
+      expect(nodes.find((n) => n.label === 'solution_page.md')?.resolvedParent).toBe('Another Goal');
       expect(checkRefErrors(nodes)).toHaveLength(0);
     });
 
-    it('reports error when anchor-based wikilink points to nonexistent anchor', () => {
+    it('keeps unresolved parent links untouched when no link target matches', () => {
       const nodes: OstNode[] = [
         {
           label: 'anchor_vision.md',
-          data: { title: 'anchor_vision', type: 'vision', status: 'active' },
+          schemaData: { title: 'anchor_vision', type: 'vision', status: 'active' },
+          linkTargets: ['anchor_vision'],
         },
         {
           label: 'some-solution.md',
-          data: {
+          schemaData: {
             title: 'some-solution',
             type: 'solution',
             status: 'identified',
             parent: '[[anchor_vision#^noanchor]]',
           },
+          linkTargets: ['some-solution'],
         },
       ];
+
+      resolveParentLinks(nodes);
 
       const errors = checkRefErrors(nodes);
       expect(errors).toHaveLength(1);
       expect(errors[0]?.parent).toBe('[[anchor_vision#^noanchor]]');
+    });
+
+    it('does not resolve bare embedded-node title links when no page exists', () => {
+      const nodes: OstNode[] = [
+        {
+          label: 'vision_page.md',
+          schemaData: { title: 'vision_page', type: 'vision', status: 'active' },
+          linkTargets: ['vision_page'],
+        },
+        {
+          label: 'Embedded Goal',
+          schemaData: {
+            title: 'Embedded Goal',
+            type: 'goal',
+            status: 'identified',
+            parent: '[[vision_page]]',
+          },
+          linkTargets: ['vision_page#Embedded Goal'],
+        },
+        {
+          label: 'solution_page.md',
+          schemaData: {
+            title: 'solution_page',
+            type: 'solution',
+            status: 'identified',
+            parent: '[[Embedded Goal]]',
+          },
+          linkTargets: ['solution_page'],
+        },
+      ];
+
+      resolveParentLinks(nodes);
+
+      expect(nodes.find((n) => n.label === 'solution_page.md')?.resolvedParent).toBeUndefined();
+      const errors = checkRefErrors(nodes);
+      expect(errors).toHaveLength(1);
+      expect(errors[0]?.parent).toBe('[[Embedded Goal]]');
     });
   });
 

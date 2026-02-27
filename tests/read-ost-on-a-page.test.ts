@@ -16,62 +16,66 @@ describe('readOstOnAPage - on-a-page-valid.md (ost_on_a_page)', () => {
   describe('heading type inference', () => {
     it('infers H1 as vision with no parent', () => {
       const node = result.nodes.find((n) => n.label === 'Personal Vision');
-      expect(node?.data.type).toBe('vision');
-      expect(node?.data.parent).toBeUndefined();
+      expect(node?.schemaData.type).toBe('vision');
+      expect(node?.schemaData.parent).toBeUndefined();
     });
 
     it('infers H2 as mission with parent from H1', () => {
       const node = result.nodes.find((n) => n.label === 'Personal Mission');
-      expect(node?.data.type).toBe('mission');
-      expect(node?.data.parent).toBe('[[Personal Vision]]');
+      expect(node?.schemaData.type).toBe('mission');
+      expect(node?.resolvedParent).toBe('Personal Vision');
+      expect(node?.schemaData.parent).toContain('[[on-a-page-valid#');
     });
 
     it('infers H3 as goal with parent from H2', () => {
       const node = result.nodes.find((n) => n.label === 'Career Growth');
-      expect(node?.data.type).toBe('goal');
-      expect(node?.data.parent).toBe('[[Personal Mission]]');
+      expect(node?.schemaData.type).toBe('goal');
+      expect(node?.resolvedParent).toBe('Personal Mission');
+      expect(node?.schemaData.parent).toContain('[[on-a-page-valid#');
     });
 
     it('infers H4 as opportunity with parent from H3', () => {
       const node = result.nodes.find((n) => n.label === 'Technical Skills');
-      expect(node?.data.type).toBe('opportunity');
-      expect(node?.data.parent).toBe('[[Career Growth]]');
+      expect(node?.schemaData.type).toBe('opportunity');
+      expect(node?.resolvedParent).toBe('Career Growth');
+      expect(node?.schemaData.parent).toContain('[[on-a-page-valid#');
     });
 
     it('infers H5 as solution with parent from H4', () => {
       const node = result.nodes.find((n) => n.label === 'Build a Side Project');
-      expect(node?.data.type).toBe('solution');
-      expect(node?.data.parent).toBe('[[Technical Skills]]');
+      expect(node?.schemaData.type).toBe('solution');
+      expect(node?.resolvedParent).toBe('Technical Skills');
+      expect(node?.schemaData.parent).toContain('[[on-a-page-valid#');
     });
   });
 
   describe('default status', () => {
     it('applies DEFAULT_STATUS to heading nodes without explicit status', () => {
       const node = result.nodes.find((n) => n.label === 'Build a Side Project');
-      expect(node?.data.status).toBe('identified');
+      expect(node?.schemaData.status).toBe('identified');
     });
   });
 
   describe('inline bracketed fields', () => {
     it('extracts [priority:: p2] from Career Growth heading and strips it from title', () => {
       const node = result.nodes.find((n) => n.label === 'Career Growth');
-      expect(node?.data.priority).toBe('p2');
-      expect(node?.data.title).toBe('Career Growth');
+      expect(node?.schemaData.priority).toBe('p2');
+      expect(node?.schemaData.title).toBe('Career Growth');
     });
   });
 
   describe('unbracketed paragraph fields', () => {
     it('extracts status:: active on Personal Vision overriding DEFAULT_STATUS', () => {
       const node = result.nodes.find((n) => n.label === 'Personal Vision');
-      expect(node?.data.status).toBe('active');
+      expect(node?.schemaData.status).toBe('active');
     });
   });
 
   describe('YAML code block', () => {
     it('merges YAML block fields into Personal Mission', () => {
       const node = result.nodes.find((n) => n.label === 'Personal Mission');
-      expect(node?.data.status).toBe('active');
-      expect(node?.data.summary).toBe('A mission-level summary set via YAML block');
+      expect(node?.schemaData.status).toBe('active');
+      expect(node?.schemaData.summary).toBe('A mission-level summary set via YAML block');
     });
   });
 
@@ -84,13 +88,14 @@ describe('readOstOnAPage - on-a-page-valid.md (ost_on_a_page)', () => {
 
     it('sets parent and summary on Learn TypeScript from dash separator', () => {
       const node = result.nodes.find((n) => n.label === 'Learn TypeScript');
-      expect(node?.data.parent).toBe('[[Technical Skills]]');
-      expect(node?.data.summary).toBe('Master TypeScript for tool development');
+      expect(node?.resolvedParent).toBe('Technical Skills');
+      expect(node?.schemaData.parent).toContain('[[on-a-page-valid#');
+      expect(node?.schemaData.summary).toBe('Master TypeScript for tool development');
     });
 
     it('applies DEFAULT_STATUS to typed bullet without explicit override', () => {
       const node = result.nodes.find((n) => n.label === 'Read OSTS Book');
-      expect(node?.data.status).toBe('identified');
+      expect(node?.schemaData.status).toBe('identified');
     });
   });
 

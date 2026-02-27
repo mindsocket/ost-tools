@@ -49,12 +49,12 @@ export function saveCache(cache: SyncCache): void {
 
 export function computeNodeHash(node: OstNode): string {
   const relevant = {
-    title: node.data.title,
-    type: node.data.type,
-    status: node.data.status,
-    summary: node.data.summary,
-    priority: node.data.priority,
-    parent: node.data.parent,
+    title: node.schemaData.title,
+    type: node.schemaData.type,
+    status: node.schemaData.status,
+    summary: node.schemaData.summary,
+    priority: node.schemaData.priority,
+    parent: node.resolvedParent ?? node.schemaData.parent,
   };
   return createHash('sha256').update(JSON.stringify(relevant)).digest('hex').slice(0, 16);
 }

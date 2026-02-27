@@ -2,6 +2,7 @@ import { readFileSync, statSync } from 'node:fs';
 import Ajv, { type ErrorObject } from 'ajv';
 import { readOstOnAPage } from './read-ost-on-a-page.js';
 import { readSpace } from './read-space.js';
+import { wikilinkToTarget } from './resolve-links.js';
 import type { OstNode } from './types.js';
 
 interface ValidationResult {
@@ -11,18 +12,6 @@ interface ValidationResult {
   refErrors: Array<{ file: string; parent: string; error: string }>;
   skipped: string[];
   nonOst: string[];
-}
-
-/**
- * Extract the lookup key from a wikilink string such as:
- *   [[Personal Vision]]                → "Personal Vision"
- *   [[Personal Vision#Our Mission]]    → "Personal Vision#Our Mission"
- *   [[vision_page#^ourmission]]        → "vision_page#^ourmission"
- */
-function wikilinkToKey(wikilink: string): string {
-  // Strip surrounding quotes if present (YAML sometimes keeps them)
-  const cleaned = wikilink.replace(/^"|"$/g, '');
-  return cleaned.slice(2, -2);
 }
 
 export async function validate(path: string, options: { schema: string }): Promise<void> {
@@ -50,7 +39,7 @@ export async function validate(path: string, options: { schema: string }): Promi
   };
 
   for (const node of nodes) {
-    const valid = validateFunc(node.data);
+    const valid = validateFunc(node.schemaData);
 
     if (valid) {
       result.schemaValidCount++;
@@ -63,24 +52,26 @@ export async function validate(path: string, options: { schema: string }): Promi
     }
   }
 
-  // Build index keyed by resolved title.
-  // File nodes: data.title is the filename without .md.
-  // Embedded nodes: data.title is the plain heading title.
-  // Anchor keys: "sourceFile#^anchor" for [[file#^anchor]] wikilinks.
+  // Parent refs are resolved to canonical titles on node.resolvedParent in read-* code.
   const nodeIndex = new Map<string, OstNode>();
   for (const n of nodes) {
-    nodeIndex.set(n.data.title as string, n);
-
-    if (n.data.anchor && n.sourceFile) {
-      nodeIndex.set(`${n.sourceFile}#^${n.data.anchor}`, n);
-    }
+    nodeIndex.set(n.schemaData.title as string, n);
   }
 
   for (const node of nodes) {
-    const parent = node.data.parent as string | undefined;
+    const parent = node.schemaData.parent as string | undefined;
     if (!parent) continue;
 
-    const parentKey = wikilinkToKey(parent);
+    const parentKey = node.resolvedParent;
+    if (!parentKey) {
+      result.refErrors.push({
+        file: node.label,
+        parent: parent,
+        error: `Parent link target "${wikilinkToTarget(parent)}" not found`,
+      });
+      continue;
+    }
+
     if (!nodeIndex.has(parentKey)) {
       result.refErrors.push({
         file: node.label,
