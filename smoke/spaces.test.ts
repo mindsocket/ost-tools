@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import { join } from 'node:path';
-import { loadConfig } from '../src/config.js';
+import { loadConfig } from '../src/config';
 
 const ROOT = join(import.meta.dir, '..');
 const config = loadConfig();

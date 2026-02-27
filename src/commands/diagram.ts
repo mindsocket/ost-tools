@@ -1,8 +1,8 @@
 import { statSync, writeFileSync } from 'node:fs';
-import { createValidator } from './config.js';
-import { readOstOnAPage } from './read-ost-on-a-page.js';
-import { readSpace } from './read-space.js';
-import type { OstNode } from './types.js';
+import { readSpaceDirectory } from '../read-space-directory';
+import { readSpaceOnAPage } from '../read-space-on-a-page';
+import { createValidator } from '../schema';
+import type { SpaceNode } from '../types';
 
 interface DiagramNode {
   id: string;
@@ -15,14 +15,14 @@ interface DiagramNode {
 export async function diagram(path: string, options: { schema: string; output?: string }): Promise<void> {
   const validateFunc = createValidator(options.schema);
 
-  let spaceNodes: OstNode[];
+  let spaceNodes: SpaceNode[];
   let skipped: string[] = [];
-  let nonOst: string[] = [];
+  let nonSpace: string[] = [];
 
   if (statSync(path).isFile()) {
-    ({ nodes: spaceNodes } = readOstOnAPage(path));
+    ({ nodes: spaceNodes } = readSpaceOnAPage(path, options.schema));
   } else {
-    ({ nodes: spaceNodes, skipped, nonOst } = await readSpace(path));
+    ({ nodes: spaceNodes, skipped, nonSpace } = await readSpaceDirectory(path, { schemaPath: options.schema }));
   }
   const nodes: DiagramNode[] = [];
   const invalid: string[] = [];
@@ -110,8 +110,8 @@ export async function diagram(path: string, options: { schema: string; output?: 
   console.error(`   Total nodes: ${nodes.length}`);
   console.error(`   Orphan nodes: ${orphans.length}`);
   console.error(`   Skipped: ${skipped.length}`);
-  if (nonOst.length > 0) {
-    console.error(`   Non-OST (no type field): ${nonOst.length}`);
+  if (nonSpace.length > 0) {
+    console.error(`   Non-space (no type field): ${nonSpace.length}`);
   }
   if (invalid.length > 0) {
     console.error(`   Invalid (skipped): ${invalid.length}`);

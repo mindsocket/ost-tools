@@ -1,6 +1,6 @@
 # ost-tools
 
-Opportunity Solution Tree validation and diagram generation tool.
+Tools for working with Opportunity Solution Tree structures and other product management and strategy frameworks
 
 ## Installation
 
@@ -10,7 +10,7 @@ npm install -g ost-tools
 
 ## Concepts
 
-See [docs/concepts.md](docs/concepts.md) for the full terminology reference, including definitions of OST nodes, embedded nodes, spaces, schemas, rules, and more.
+See [docs/concepts.md](docs/concepts.md) for the full terminology reference, including definitions of nodes, embedded nodes, spaces, schemas, rules, and more.
 
 ## Configuration
 
@@ -24,10 +24,10 @@ See `config.example.json` for the full structure. The config maps space aliases 
 
 ### Spaces
 
-A space is a named OST directory registered in the config. Spaces let you reference a tree by alias instead of path:
+A space is a named directory or single file registered in the config. Spaces let you reference content by alias instead of path:
 
 ```bash
-ost-tools validate personal
+ost-tools validate ProductX
 ```
 
 ### Schemas
@@ -40,13 +40,13 @@ Schema resolution order: CLI `--schema` > space config `schema` > global config 
 
 ## Usage
 
-### Validate OST nodes
+### Validate nodes
 
 ```bash
 ost-tools validate <space-or-dir> [--schema path/to/my-schema.json]
 ```
 
-Validates markdown files against the OST JSON schema:
+Validates markdown files against the JSON schema:
 - Extracts YAML frontmatter from each `.md` file
 - Skips files without frontmatter or without a `type` field
 - Reports validation results with counts and per-file errors
@@ -57,19 +57,19 @@ Validates markdown files against the OST JSON schema:
 ost-tools diagram <space-or-dir> [--output path/to/output.mmd] [--schema path/to/my-schema.json]
 ```
 
-Generates a Mermaid `graph TD` diagram from validated OST nodes:
+Generates a Mermaid `graph TD` diagram from validated space nodes:
 - Uses parent→child relationships from wikilinks
 - Applies type-based styling (different colours per node type and status)
 - Handles orphan nodes (no parent) as a separate cluster
 - Outputs to file or stdout
 
-### Sync OST to Miro
+### Sync space to Miro
 
 ```bash
 ost-tools miro-sync <space> [--new-frame <title>] [--dry-run] [--verbose]
 ```
 
-Syncs OST nodes to a Miro board as cards with connectors. Requires `MIRO_TOKEN` env var and `miroBoardId` set in the space's config entry.
+Syncs space nodes to a Miro board as cards with connectors. Requires `MIRO_TOKEN` env var and `miroBoardId` set in the space's config entry.
 
 - `--new-frame <title>` — create a new frame on the board and sync into it; auto-saves the resulting `miroFrameId` back to the config file
 - `--dry-run` — show what would change without touching Miro

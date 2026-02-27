@@ -2,7 +2,12 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "ost-tools://general",
   "title": "Opportunity Solution Tree Node",
-  "description": "Validates frontmatter for OST node files",
+  "description": "Validates frontmatter for space node files",
+  "$defs": {
+    "_metadata": {
+      "hierarchy": ["vision", "mission", "goal", "opportunity", "solution", "experiment"]
+    }
+  },
   "oneOf": [
     {
       "type": "object",
@@ -17,7 +22,7 @@
       "type": "object",
       "allOf": [{ "$ref": "ost-tools://_shared#/$defs/baseNodeProps" }],
       "properties": {
-        "type": { "const": "ost_on_a_page" }
+        "type": { "enum": ["ost_on_a_page", "space_on_a_page"] }
       },
       "required": ["type"],
       "additionalProperties": true
@@ -68,7 +73,7 @@
         { "$ref": "ost-tools://_shared#/$defs/ostEntityProps" }
       ],
       "properties": {
-        "type": { "const": "goal" },
+        "type": { "enum": ["goal", "outcome"] },
         "parent": { "$ref": "ost-tools://_shared#/$defs/wikilink" },
         "priority": { "$ref": "ost-tools://_shared#/$defs/priority" }
       },
@@ -149,6 +154,34 @@
           "status": "identified",
           "parent": "[[Some Opportunity]]",
           "priority": "p3"
+        }
+      ]
+    },
+    {
+      "type": "object",
+      "allOf": [
+        { "$ref": "ost-tools://_shared#/$defs/baseNodeProps" },
+        { "$ref": "ost-tools://_shared#/$defs/ostEntityProps" }
+      ],
+      "properties": {
+        "type": { "enum": ["experiment", "assumption_test", "test"] },
+        "parent": {
+          "$ref": "ost-tools://_shared#/$defs/wikilink",
+          "description": "Parent solution (wikilink)"
+        }
+      },
+      "required": ["type"],
+      "additionalProperties": true,
+      "examples": [
+        {
+          "type": "experiment",
+          "status": "exploring",
+          "parent": "[[Build a Side Project]]"
+        },
+        {
+          "type": "test",
+          "status": "active",
+          "parent": "[[Mobile App Solution]]"
         }
       ]
     }

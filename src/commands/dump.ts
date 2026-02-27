@@ -1,13 +1,13 @@
 import { statSync } from 'node:fs';
-import { readOstOnAPage } from './read-ost-on-a-page.js';
-import { readSpace } from './read-space.js';
+import { readSpaceDirectory } from '../read-space-directory';
+import { readSpaceOnAPage } from '../read-space-on-a-page';
 
 export async function dump(path: string) {
   if (statSync(path).isFile()) {
-    const { nodes, diagnostics } = readOstOnAPage(path);
+    const { nodes, diagnostics } = readSpaceOnAPage(path);
     console.log(JSON.stringify({ nodes, diagnostics }, null, 2));
   } else {
-    const { nodes, skipped, nonOst } = await readSpace(path);
+    const { nodes, skipped, nonSpace: nonOst } = await readSpaceDirectory(path);
     console.log(JSON.stringify({ nodes, skipped, nonOst }, null, 2));
   }
 }

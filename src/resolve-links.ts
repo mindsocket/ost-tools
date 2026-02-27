@@ -1,6 +1,6 @@
-import type { OstNode } from './types.js';
+import type { SpaceNode } from './types';
 
-function addTarget(index: Map<string, OstNode | null>, target: string, node: OstNode): void {
+function addTarget(index: Map<string, SpaceNode | null>, target: string, node: SpaceNode): void {
   const normalized = target.trim();
   if (!normalized) return;
 
@@ -15,8 +15,8 @@ function addTarget(index: Map<string, OstNode | null>, target: string, node: Ost
   }
 }
 
-function buildTargetIndex(nodes: OstNode[]): Map<string, OstNode | null> {
-  const index = new Map<string, OstNode | null>();
+function buildTargetIndex(nodes: SpaceNode[]): Map<string, SpaceNode | null> {
+  const index = new Map<string, SpaceNode | null>();
   for (const node of nodes) {
     for (const target of node.linkTargets) {
       addTarget(index, target, node);
@@ -39,7 +39,7 @@ export function wikilinkToTarget(wikilink: string): string {
   return cleaned.slice(2, -2).trim();
 }
 
-export function resolveParentLinks(nodes: OstNode[]): void {
+export function resolveParentLinks(nodes: SpaceNode[]): void {
   const targetIndex = buildTargetIndex(nodes);
 
   for (const node of nodes) {

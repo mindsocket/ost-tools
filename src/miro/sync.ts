@@ -1,12 +1,12 @@
 import { statSync } from 'node:fs';
-import { loadConfig, resolveSpacePath, updateSpaceField } from '../config.js';
-import { readOstOnAPage } from '../read-ost-on-a-page.js';
-import { readSpace } from '../read-space.js';
-import type { OstNode } from '../types.js';
-import { computeMiroCardHash, computeNodeHash, loadCache, saveCache } from './cache.js';
-import { MiroClient, MiroNotFoundError } from './client.js';
-import { CARD_WIDTH, layoutNewCards } from './layout.js';
-import { buildCardDescription, buildCardTitle, getCardColor } from './styles.js';
+import { loadConfig, resolveSpacePath, updateSpaceField } from '../config';
+import { readSpaceDirectory } from '../read-space-directory';
+import { readSpaceOnAPage } from '../read-space-on-a-page';
+import type { SpaceNode } from '../types';
+import { computeMiroCardHash, computeNodeHash, loadCache, saveCache } from './cache';
+import { MiroClient, MiroNotFoundError } from './client';
+import { CARD_WIDTH, layoutNewCards } from './layout';
+import { buildCardDescription, buildCardTitle, getCardColor } from './styles';
 
 interface SyncOptions {
   newFrame?: string;
@@ -46,18 +46,18 @@ export async function miroSync(spaceOrPath: string, options: SyncOptions): Promi
     process.exit(1);
   }
 
-  // 3. Load OST nodes (load before creating frame so we can calculate size)
+  // 3. Load space nodes (load before creating frame so we can calculate size)
   const resolvedPath = resolveSpacePath(spaceOrPath, config);
-  let nodes: OstNode[];
+  let nodes: SpaceNode[];
 
   if (statSync(resolvedPath).isFile()) {
-    ({ nodes } = readOstOnAPage(resolvedPath));
+    ({ nodes } = readSpaceOnAPage(resolvedPath));
   } else {
-    ({ nodes } = await readSpace(resolvedPath));
+    ({ nodes } = await readSpaceDirectory(resolvedPath));
   }
 
   if (nodes.length === 0) {
-    console.log('No OST nodes found.');
+    console.log('No space nodes found.');
     return;
   }
 
@@ -153,8 +153,8 @@ export async function miroSync(spaceOrPath: string, options: SyncOptions): Promi
 
   // 6. Determine which nodes are new vs updated vs unchanged
   // Compare actual Miro card content against markdown (not cached hash)
-  const newNodes: OstNode[] = [];
-  const updatedNodes: { node: OstNode; cardId: string }[] = [];
+  const newNodes: SpaceNode[] = [];
+  const updatedNodes: { node: SpaceNode; cardId: string }[] = [];
   let skippedCount = 0;
 
   for (const node of nodes) {

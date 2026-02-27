@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { OstNode } from '../types.js';
+import type { SpaceNode } from '../types';
 
 export interface CachedNode {
   miroCardId: string;
@@ -47,7 +47,7 @@ export function saveCache(cache: SyncCache): void {
   writeFileSync(path, `${JSON.stringify(cache, null, 2)}\n`);
 }
 
-export function computeNodeHash(node: OstNode): string {
+export function computeNodeHash(node: SpaceNode): string {
   const relevant = {
     title: node.schemaData.title,
     type: node.schemaData.type,

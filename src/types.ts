@@ -1,4 +1,4 @@
-export interface OstNode {
+export interface SpaceNode {
   /** Source identifier for error messages (filename or heading title) */
   label: string;
   /** Fields validated against the active schema. */
@@ -9,20 +9,20 @@ export interface OstNode {
   resolvedParent?: string;
 }
 
-export interface OstPageDiagnostics {
+export interface SpaceOnAPageDiagnostics {
   /** Top-level mdast nodes before the first heading (ignored as preamble). */
   preambleNodeCount: number;
   /** Heading titles encountered after the --- terminator (OST nodes that were not parsed). */
   terminatedHeadings: string[];
 }
 
-export interface OstOnAPageReadResult {
-  nodes: OstNode[];
-  diagnostics: OstPageDiagnostics;
+export interface SpaceOnAPageReadResult {
+  nodes: SpaceNode[];
+  diagnostics: SpaceOnAPageDiagnostics;
 }
 
-export interface SpaceReadResult {
-  nodes: OstNode[];
+export interface SpaceDirectoryReadResult {
+  nodes: SpaceNode[];
   skipped: string[]; // files with no frontmatter
-  nonOst: string[]; // files with frontmatter but no type field
+  nonSpace: string[]; // files with frontmatter but no type field
 }

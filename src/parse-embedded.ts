@@ -4,18 +4,18 @@ import { toString as mdastToString } from 'mdast-util-to-string';
 import remarkGfm from 'remark-gfm';
 import remarkParse from 'remark-parse';
 import { unified } from 'unified';
-import type { OstNode, OstPageDiagnostics } from './types.js';
+import type { SpaceNode, SpaceOnAPageDiagnostics } from './types';
 
-export const OST_TYPES = ['vision', 'mission', 'goal', 'opportunity', 'solution'] as const;
-export type OstType = (typeof OST_TYPES)[number];
+/** Type values that identify a space_on_a_page container (not themselves space nodes). */
+export const ON_A_PAGE_TYPES = ['ost_on_a_page', 'space_on_a_page'];
 
 export const DEFAULT_STATUS = 'identified';
 
 export interface StackEntry {
   depth: number;
   title: string;
-  /** Empty string marks an untyped heading placeholder (typed-page mode, i.e. not ost_on_a_page). */
-  ostType: string;
+  /** Empty string marks an untyped heading placeholder (typed-page mode, i.e. not space_on_a_page). */
+  nodeType: string;
   /** Preferred wikilink key used when this heading acts as a parent. */
   refTarget: string;
 }
@@ -75,12 +75,12 @@ export function extractAnchor(text: string): { cleanText: string; anchor?: strin
 }
 
 /**
- * If the anchor name exactly matches an OST type (or an OST type followed by digits),
+ * If the anchor name exactly matches a space node type (optionally followed by digits),
  * return that type. Otherwise return undefined.
  * Examples: "mission" -> "mission", "goal1" -> "goal", "myanchor" -> undefined
  */
-export function anchorToOstType(anchor: string): string | undefined {
-  for (const type of OST_TYPES) {
+export function anchorToNodeType(anchor: string, hierarchy: readonly string[]): string | undefined {
+  for (const type of hierarchy) {
     if (anchor === type || new RegExp(`^${type}\\d+$`).test(anchor)) {
       return type;
     }
@@ -101,20 +101,20 @@ export function normalizeHeadingSectionTarget(rawHeadingText: string): string {
 }
 
 /**
- * Returns the default OST type for a new heading based on its parent's effective type.
- * The first heading in a document defaults to 'vision'; each child is the next in sequence.
+ * Returns the default space node type for a new heading based on its parent's effective type.
+ * The first heading in a document defaults to the first type in the hierarchy; each child is the next in sequence.
  */
-export function defaultOstType(stack: StackEntry[]): string {
-  if (stack.length === 0) return OST_TYPES[0]!;
-  const parentType = stack[stack.length - 1]?.ostType;
-  const idx = OST_TYPES.indexOf(parentType as OstType);
-  if (idx === -1 || idx >= OST_TYPES.length - 1) {
-    throw new Error(`No OST type follows "${parentType}" - cannot determine type for child heading`);
+export function defaultNodeType(stack: StackEntry[], hierarchy: readonly string[]): string {
+  if (stack.length === 0) return hierarchy[0]!;
+  const parentType = stack[stack.length - 1]!.nodeType;
+  const idx = hierarchy.indexOf(parentType);
+  if (idx === -1 || idx >= hierarchy.length - 1) {
+    throw new Error(`No node type follows "${parentType}" - cannot determine type for child heading`);
   }
-  return OST_TYPES[idx + 1]!;
+  return hierarchy[idx + 1]!;
 }
 
-function appendContent(node: OstNode, text: string): void {
+function appendContent(node: SpaceNode, text: string): void {
   if (!text) return;
   const existing = node.schemaData.content as string | undefined;
   node.schemaData.content = existing ? `${existing}\n${text}` : text;
@@ -123,8 +123,8 @@ function appendContent(node: OstNode, text: string): void {
 function processListItem(
   item: ListItem,
   parentRef: string | undefined,
-  contentTarget: OstNode,
-  nodes: OstNode[],
+  contentTarget: SpaceNode,
+  nodes: SpaceNode[],
   makeLabel: (title: string) => string,
   buildLinkTargets: (title: string) => string[],
 ): void {
@@ -153,7 +153,7 @@ function processListItem(
     if (summary) schemaData.summary = summary;
 
     const linkTargets = buildLinkTargets(title);
-    const newNode: OstNode = { label: makeLabel(title), schemaData, linkTargets };
+    const newNode: SpaceNode = { label: makeLabel(title), schemaData, linkTargets };
     nodes.push(newNode);
 
     const nestedParentRef = `[[${linkTargets[0] ?? title}]]`;
@@ -171,54 +171,58 @@ function processListItem(
 
 export interface ExtractEmbeddedOptions {
   /**
-   * Title of the containing page. If provided (and pageType is non-`ost_on_a_page`),
+   * Title of the containing page. If provided (and pageType is not a space_on_a_page type),
    * the page acts as a virtual depth-0 parent for first-level embedded headings.
    */
   pageTitle?: string;
   /**
-   * OST type of the containing page.
-   * - If set to a real OST type (not 'ost_on_a_page'): only headings with an explicit
-   *   `[type:: x]` field or an OST-type anchor become nodes (typed-page mode).
-   * - If 'ost_on_a_page' or undefined: all headings become nodes with depth-based
-   *   type inference (classic ost_on_a_page behaviour).
+   * Node type of the containing page.
+   * - If set to a real node type: only headings with an explicit `[type:: x]` field or a
+   *   type-named anchor become nodes (typed-page mode).
+   * - If an on-a-page type (`space_on_a_page` / `ost_on_a_page`) or undefined: all headings
+   *   become nodes with depth-based type inference ("space on a page" behaviour).
    */
   pageType?: string;
+  /**
+   * Hierarchy of node types for depth-based type inference in space-on-a-page mode.
+   */
+  hierarchy: readonly string[];
 }
 
 export interface ExtractEmbeddedResult {
-  nodes: OstNode[];
-  diagnostics: OstPageDiagnostics;
+  nodes: SpaceNode[];
+  diagnostics: SpaceOnAPageDiagnostics;
 }
 
 /**
- * Extract OST nodes from markdown body text.
+ * Extract space nodes from markdown body text.
  *
- * Shared by both readOstOnAPage (single ost_on_a_page file) and readSpace
+ * Shared by both readSpaceOnAPage (single space_on_a_page file) and readSpaceDirectory
  * (directory) to find embedded sub-nodes within a page's content.
  */
-export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptions = {}): ExtractEmbeddedResult {
-  const { pageTitle, pageType } = options;
-  const isOnAPageMode = pageType === undefined || pageType === 'ost_on_a_page';
+export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptions): ExtractEmbeddedResult {
+  const { pageTitle, pageType, hierarchy } = options;
+  const isOnAPageMode = pageType === undefined || ON_A_PAGE_TYPES.includes(pageType);
 
-  const nodes: OstNode[] = [];
+  const nodes: SpaceNode[] = [];
   // Preamble/root content sink - never added to nodes
-  const rootNode: OstNode = { label: '_root_', schemaData: { type: 'ost_on_a_page' }, linkTargets: [] };
+  const rootNode: SpaceNode = { label: '_root_', schemaData: { type: 'space_on_a_page' }, linkTargets: [] };
 
   const tree = unified().use(remarkParse).use(remarkGfm).parse(body) as Root;
 
   // In typed-page mode: stack starts with the page's own virtual entry (depth 0).
-  // In ost_on_a_page mode: stack starts empty (first heading has no parent).
+  // In space_on_a_page mode: stack starts empty (first heading has no parent).
   const stack: StackEntry[] =
     !isOnAPageMode && pageTitle !== undefined
-      ? [{ depth: 0, title: pageTitle, ostType: pageType, refTarget: pageTitle }]
+      ? [{ depth: 0, title: pageTitle, nodeType: pageType, refTarget: pageTitle }]
       : [];
 
-  let currentContextNode: OstNode = rootNode;
+  let currentContextNode: SpaceNode = rootNode;
 
   type ParseState = 'preamble' | 'active' | 'done';
   let parseState: ParseState = 'preamble';
 
-  const diagnostics: OstPageDiagnostics = {
+  const diagnostics: SpaceOnAPageDiagnostics = {
     preambleNodeCount: 0,
     terminatedHeadings: [],
   };
@@ -228,14 +232,14 @@ export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptio
   }
 
   /**
-   * Walk the stack backwards to find the deepest real OST node entry (ostType !== '').
-   * Untyped-heading placeholders (ostType === '') are skipped so that typed headings
+   * Walk the stack backwards to find the deepest typed node entry (nodeType !== '').
+   * Untyped-heading placeholders (nodeType === '') are skipped so that typed headings
    * beneath an untyped heading correctly inherit the last typed ancestor.
    */
   function currentParentRef(): string | undefined {
     for (let i = stack.length - 1; i >= 0; i--) {
       const entry = stack[i]!;
-      if (entry.ostType === '') continue;
+      if (entry.nodeType === '') continue;
       return `[[${entry.refTarget}]]`;
     }
     return undefined;
@@ -293,7 +297,7 @@ export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptio
       const { cleanText: afterBracketed, fields: inlineFields } = extractBracketedFields(rawText);
       const { cleanText: title, anchor } = extractAnchor(afterBracketed);
 
-      const anchorType = anchor ? anchorToOstType(anchor) : undefined;
+      const anchorType = anchor ? anchorToNodeType(anchor, hierarchy) : undefined;
       const hasExplicitType = !!inlineFields.type;
       const hasImpliedType = !!anchorType;
 
@@ -302,11 +306,11 @@ export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptio
         while (stack.length > 0 && stack[stack.length - 1]!.depth >= depth) {
           stack.pop();
         }
-        stack.push({ depth, title, ostType: '', refTarget: title });
+        stack.push({ depth, title, nodeType: '', refTarget: title });
         continue;
       }
 
-      // In ost_on_a_page mode, enforce the no-level-skip rule.
+      // In space_on_a_page mode, enforce the no-level-skip rule.
       if (isOnAPageMode && stack.length > 0) {
         const topDepth = stack[stack.length - 1]!.depth;
         if (depth > topDepth + 1) {
@@ -318,7 +322,7 @@ export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptio
         stack.pop();
       }
 
-      const type = inlineFields.type ?? anchorType ?? defaultOstType(stack);
+      const type = inlineFields.type ?? anchorType ?? defaultNodeType(stack, hierarchy);
       const parentRef = currentParentRef();
 
       const schemaData: Record<string, unknown> = {
@@ -330,12 +334,12 @@ export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptio
       if (parentRef) schemaData.parent = parentRef;
 
       const linkTargets = buildHeadingLinkTargets(rawText, title, anchor);
-      const headingNode: OstNode = { label: makeLabel(title), schemaData, linkTargets };
+      const headingNode: SpaceNode = { label: makeLabel(title), schemaData, linkTargets };
       nodes.push(headingNode);
       currentContextNode = headingNode;
 
       const refTarget = linkTargets[0] ?? title;
-      stack.push({ depth, title, ostType: type, refTarget });
+      stack.push({ depth, title, nodeType: type, refTarget });
     } else if (parseState !== 'active') {
       diagnostics.preambleNodeCount++;
     } else if (child.type === 'list') {
