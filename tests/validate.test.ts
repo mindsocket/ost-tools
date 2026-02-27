@@ -1,20 +1,17 @@
 import { beforeAll, describe, expect, it } from 'bun:test';
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import Ajv from 'ajv';
+import { createValidator } from '../src/config.js';
 import { readOstOnAPage } from '../src/read-ost-on-a-page.js';
 import { readSpace } from '../src/read-space.js';
 import { resolveParentLinks } from '../src/resolve-links.js';
 import type { OstNode } from '../src/types.js';
 
-const SCHEMA_PATH = join(import.meta.dir, '../schema.json');
+const DEFAULT_SCHEMA_PATH = join(import.meta.dir, '../schemas/general.json');
 const VALID_DIR = join(import.meta.dir, 'fixtures/valid-ost');
 const INVALID_DIR = join(import.meta.dir, 'fixtures/invalid-ost');
 const VALID_PAGE = join(import.meta.dir, 'fixtures/on-a-page-valid.md');
 
-const schema = JSON.parse(readFileSync(SCHEMA_PATH, 'utf-8'));
-const ajv = new Ajv();
-const validateNode = ajv.compile(schema);
+const validateNode = createValidator(DEFAULT_SCHEMA_PATH);
 
 /** Inline ref-check helper - mirrors the logic in validate.ts. */
 function checkRefErrors(nodes: OstNode[]): Array<{ file: string; parent: string }> {

@@ -1,7 +1,7 @@
 export interface OstNode {
   /** Source identifier for error messages (filename or heading title) */
   label: string;
-  /** Fields that are validated by schema.json. */
+  /** Fields validated against the active schema. */
   schemaData: Record<string, unknown>;
   /** Valid navigation targets this node can be linked to (wikilink key without [[ ]]). */
   linkTargets: string[];

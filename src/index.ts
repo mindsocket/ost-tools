@@ -22,9 +22,10 @@ program
   .option('-s, --schema <path>', 'Path to JSON schema file')
   .action((spaceOrDir, options) => {
     const config = loadConfig();
-    validate(resolveSpacePath(spaceOrDir, config), {
+    const space = config.spaces.find((s) => s.alias === spaceOrDir);
+    validate(space?.path ?? resolveSpacePath(spaceOrDir, config), {
       ...options,
-      schema: resolveSchema(options.schema, config),
+      schema: resolveSchema(options.schema, config, space),
     });
   });
 
@@ -36,9 +37,10 @@ program
   .option('-s, --schema <path>', 'Path to JSON schema file')
   .action((spaceOrDir, options) => {
     const config = loadConfig();
-    diagram(resolveSpacePath(spaceOrDir, config), {
+    const space = config.spaces.find((s) => s.alias === spaceOrDir);
+    diagram(space?.path ?? resolveSpacePath(spaceOrDir, config), {
       ...options,
-      schema: resolveSchema(options.schema, config),
+      schema: resolveSchema(options.schema, config, space),
     });
   });
 

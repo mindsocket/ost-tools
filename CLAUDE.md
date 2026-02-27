@@ -24,7 +24,7 @@ Before starting new work, review [docs/concepts.md](docs/concepts.md) for canoni
 ## Key Files
 
 - `config.json` — Space registry (alias → absolute path)
-- `schema.json` — Entity type definitions and validation rules
+- `schemas/` — Schema files; composable
 
 ## Testing
 

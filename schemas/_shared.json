@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "ost-tools://_shared",
+  "description": "Shared definitions referenced by OST schema files",
+  "$defs": {
+    "title": {
+      "type": "string",
+      "description": "Title of the node (derived from filename at validation time)"
+    },
+    "content": {
+      "type": "string",
+      "description": "Body content of the document (excluding frontmatter)"
+    },
+    "summary": {
+      "type": "string",
+      "description": "Short summary of the node"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["identified", "wondering", "exploring", "active", "paused", "completed", "archived"]
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["p1", "p2", "p3", "p4"]
+    },
+    "assessment": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5,
+      "description": "Assessment score from 1-5"
+    },
+    "wikilink": {
+      "type": "string",
+      "pattern": "^\\[\\[.+\\]\\]$",
+      "description": "An Obsidian wikilink, e.g. [[Parent Node]]"
+    },
+    "baseNodeProps": {
+      "type": "object",
+      "properties": {
+        "title": { "$ref": "#/$defs/title" },
+        "content": { "$ref": "#/$defs/content" },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Categorization tags"
+        }
+      },
+      "required": ["title"]
+    },
+    "ostEntityProps": {
+      "type": "object",
+      "properties": {
+        "status": { "$ref": "#/$defs/status" },
+        "summary": { "$ref": "#/$defs/summary" },
+        "status_tweet": {
+          "type": "string",
+          "description": "Succinct free-text status summary"
+        }
+      },
+      "required": ["status"]
+    }
+  }
+}

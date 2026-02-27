@@ -39,13 +39,13 @@ bun run src/index.ts validate personal
       "miroFrameId": "3458764123456789"
     }
   ],
-  "schema": "/path/to/custom/schema.json",
+  "schema": "/path/to/custom/schemas/my-schema.json",
   "templateDir": "/path/to/Templates"
 }
 ```
 
 - `miroBoardId` / `miroFrameId` — required for `miro-sync` (frame ID is auto-saved after `--new-frame`)
-- `schema` — overrides default schema path (`schema.json`). CLI `--schema` takes precedence
+- `schema` — overrides schema path
 - `templateDir` — default template directory for `template-sync` (can omit the CLI argument)
 
 ## Usage
@@ -53,19 +53,18 @@ bun run src/index.ts validate personal
 ### Validate OST nodes
 
 ```bash
-bun run src/index.ts validate <space-or-dir> [--schema path/to/schema.json]
+bun run src/index.ts validate <space-or-dir> [--schema path/to/my-schema.json]
 ```
 
 Validates markdown files against the OST JSON schema:
 - Extracts YAML frontmatter from each `.md` file
 - Skips files without frontmatter or without a `type` field
-- Validates against the resolved schema (CLI `--schema` > `config.schema` > `schema.json`)
 - Reports validation results with counts and per-file errors
 
 ### Generate Mermaid diagram
 
 ```bash
-bun run src/index.ts diagram <space-or-dir> [--output path/to/output.mmd] [--schema path/to/schema.json]
+bun run src/index.ts diagram <space-or-dir> [--output path/to/output.mmd] [--schema path/to/my-schema.json]
 ```
 
 Generates Mermaid `graph TD` diagram from validated OST nodes:
@@ -93,7 +92,7 @@ Sync is one-way (OST → Miro) and scoped to a single frame. Only cards and conn
 ### Sync templates with schema
 
 ```bash
-bun run src/index.ts template-sync [template-dir] [--schema path/to/schema.json] [--dry-run]
+bun run src/index.ts template-sync [template-dir] [--schema path/to/my-schema.json] [--dry-run]
 ```
 
 Keeps Obsidian template files in sync with schema examples:
@@ -124,7 +123,9 @@ bun run test:all
 
 ## Schema
 
-The `schema.json` file contains the OST JSON Schema definition for validating node frontmatter.
+Schema files and composable parts of schemas live in `schemas/`. Additional schemas can be added and selected per-space or globally via `config.json`.
+
+Schema resolution order: (CLI `--schema` argument > space config `schema` > global config `schema` > `schemas/general.json` default)
 
 ## License
 

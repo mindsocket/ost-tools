@@ -1,5 +1,6 @@
-import { readFileSync, statSync } from 'node:fs';
-import Ajv, { type ErrorObject } from 'ajv';
+import { statSync } from 'node:fs';
+import type { ErrorObject } from 'ajv';
+import { createValidator } from './config.js';
 import { readOstOnAPage } from './read-ost-on-a-page.js';
 import { readSpace } from './read-space.js';
 import { wikilinkToTarget } from './resolve-links.js';
@@ -15,9 +16,7 @@ interface ValidationResult {
 }
 
 export async function validate(path: string, options: { schema: string }): Promise<void> {
-  const schema = JSON.parse(readFileSync(options.schema, 'utf-8'));
-  const ajv = new Ajv();
-  const validateFunc = ajv.compile(schema);
+  const validateFunc = createValidator(options.schema);
 
   let nodes: OstNode[];
   let skipped: string[] = [];

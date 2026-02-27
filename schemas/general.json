@@ -1,0 +1,156 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "ost-tools://general",
+  "title": "Opportunity Solution Tree Node",
+  "description": "Validates frontmatter for OST node files",
+  "oneOf": [
+    {
+      "type": "object",
+      "allOf": [{ "$ref": "ost-tools://_shared#/$defs/baseNodeProps" }],
+      "properties": {
+        "type": { "const": "dashboard" }
+      },
+      "required": ["type"],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "allOf": [{ "$ref": "ost-tools://_shared#/$defs/baseNodeProps" }],
+      "properties": {
+        "type": { "const": "ost_on_a_page" }
+      },
+      "required": ["type"],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "allOf": [
+        { "$ref": "ost-tools://_shared#/$defs/baseNodeProps" },
+        { "$ref": "ost-tools://_shared#/$defs/ostEntityProps" }
+      ],
+      "properties": {
+        "type": { "const": "vision" }
+      },
+      "required": ["type"],
+      "not": { "required": ["parent"] },
+      "additionalProperties": true,
+      "examples": [
+        {
+          "type": "vision",
+          "status": "active"
+        }
+      ]
+    },
+    {
+      "type": "object",
+      "allOf": [
+        { "$ref": "ost-tools://_shared#/$defs/baseNodeProps" },
+        { "$ref": "ost-tools://_shared#/$defs/ostEntityProps" }
+      ],
+      "properties": {
+        "type": { "const": "mission" },
+        "parent": { "$ref": "ost-tools://_shared#/$defs/wikilink" }
+      },
+      "required": ["type"],
+      "additionalProperties": true,
+      "examples": [
+        {
+          "type": "mission",
+          "status": "active",
+          "parent": "[[Personal Vision]]"
+        }
+      ]
+    },
+    {
+      "type": "object",
+      "allOf": [
+        { "$ref": "ost-tools://_shared#/$defs/baseNodeProps" },
+        { "$ref": "ost-tools://_shared#/$defs/ostEntityProps" }
+      ],
+      "properties": {
+        "type": { "const": "goal" },
+        "parent": { "$ref": "ost-tools://_shared#/$defs/wikilink" },
+        "priority": { "$ref": "ost-tools://_shared#/$defs/priority" }
+      },
+      "required": ["type"],
+      "additionalProperties": true,
+      "examples": [
+        {
+          "type": "goal",
+          "status": "active",
+          "parent": "[[My Mission (2026)]]",
+          "priority": "p2"
+        }
+      ]
+    },
+    {
+      "type": "object",
+      "allOf": [
+        { "$ref": "ost-tools://_shared#/$defs/baseNodeProps" },
+        { "$ref": "ost-tools://_shared#/$defs/ostEntityProps" }
+      ],
+      "properties": {
+        "type": { "const": "opportunity" },
+        "parent": { "$ref": "ost-tools://_shared#/$defs/wikilink" },
+        "priority": { "$ref": "ost-tools://_shared#/$defs/priority" },
+        "impact": { "$ref": "ost-tools://_shared#/$defs/assessment" },
+        "feasibility": { "$ref": "ost-tools://_shared#/$defs/assessment" },
+        "resources": { "$ref": "ost-tools://_shared#/$defs/assessment" },
+        "timeline": {
+          "type": "string",
+          "description": "Timeline estimate (e.g., S-M, M-L)"
+        },
+        "next_steps": {
+          "type": "string",
+          "description": "Next steps for this opportunity"
+        }
+      },
+      "required": ["type"],
+      "additionalProperties": true,
+      "examples": [
+        {
+          "type": "opportunity",
+          "status": "identified",
+          "parent": "[[Career Growth]]",
+          "priority": "p2"
+        }
+      ]
+    },
+    {
+      "type": "object",
+      "allOf": [
+        { "$ref": "ost-tools://_shared#/$defs/baseNodeProps" },
+        { "$ref": "ost-tools://_shared#/$defs/ostEntityProps" }
+      ],
+      "properties": {
+        "type": { "const": "solution" },
+        "parent": {
+          "$ref": "ost-tools://_shared#/$defs/wikilink",
+          "description": "Parent opportunity or solution (wikilink)"
+        },
+        "priority": { "$ref": "ost-tools://_shared#/$defs/priority" },
+        "impact": { "$ref": "ost-tools://_shared#/$defs/assessment" },
+        "feasibility": { "$ref": "ost-tools://_shared#/$defs/assessment" },
+        "resources": { "$ref": "ost-tools://_shared#/$defs/assessment" },
+        "timeline": {
+          "type": "string",
+          "description": "Timeline estimate (e.g., S-M, M-L)"
+        },
+        "next_steps": {
+          "type": "string",
+          "description": "Next steps for this solution"
+        }
+      },
+      "required": ["type"],
+      "additionalProperties": true,
+      "examples": [
+        {
+          "type": "solution",
+          "status": "identified",
+          "parent": "[[Some Opportunity]]",
+          "priority": "p3"
+        }
+      ]
+    }
+  ]
+}

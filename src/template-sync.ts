@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { glob } from 'glob';
 import matter from 'gray-matter';
 import yaml from 'js-yaml';
+import { loadSchema } from './config.js';
 
 interface TypeVariant {
   required: string[];
@@ -95,7 +96,7 @@ function getTypeVariants(schema: any): Map<string, TypeVariant> {
 }
 
 export async function templateSync(templateDir: string, options: { schema: string; dryRun?: boolean }) {
-  const schema = JSON.parse(readFileSync(options.schema, 'utf-8'));
+  const schema = loadSchema(options.schema);
   const typeVariants = getTypeVariants(schema);
 
   const files = await glob('OST - *.md', { cwd: templateDir, absolute: true });

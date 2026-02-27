@@ -1,5 +1,5 @@
-import { readFileSync, statSync, writeFileSync } from 'node:fs';
-import Ajv from 'ajv';
+import { statSync, writeFileSync } from 'node:fs';
+import { createValidator } from './config.js';
 import { readOstOnAPage } from './read-ost-on-a-page.js';
 import { readSpace } from './read-space.js';
 import type { OstNode } from './types.js';
@@ -13,9 +13,7 @@ interface DiagramNode {
 }
 
 export async function diagram(path: string, options: { schema: string; output?: string }): Promise<void> {
-  const schema = JSON.parse(readFileSync(options.schema, 'utf-8'));
-  const ajv = new Ajv();
-  const validateFunc = ajv.compile(schema);
+  const validateFunc = createValidator(options.schema);
 
   let spaceNodes: OstNode[];
   let skipped: string[] = [];
