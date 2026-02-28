@@ -6,7 +6,7 @@ import type { SpaceOnAPageReadResult } from '../src/types';
 const VALID_PAGE = join(import.meta.dir, 'fixtures/general/on-a-page-valid.md');
 const SKIP_PAGE = join(import.meta.dir, 'fixtures/general/on-a-page-heading-skip.md');
 
-describe('readSpaceOnAPage - on-a-page-valid.md (ost_on_a_page)', () => {
+describe('readSpaceOnAPage - on-a-page-valid.md (space_on_a_page)', () => {
   let result: SpaceOnAPageReadResult;
 
   beforeAll(() => {
