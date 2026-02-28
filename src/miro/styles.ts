@@ -1,4 +1,4 @@
-import type { OstNode } from '../types.js';
+import type { SpaceNode } from '../types';
 
 const TYPE_COLORS: Record<string, string> = {
   vision: '#ff9999',
@@ -22,7 +22,7 @@ export function getCardColor(type: string): string {
   return TYPE_COLORS[type] ?? '#e0e0e0';
 }
 
-export function buildCardTitle(node: OstNode): string {
+export function buildCardTitle(node: SpaceNode): string {
   const title = node.schemaData.title as string;
   const status = node.schemaData.status as string | undefined;
   const priority = node.schemaData.priority as string | undefined;
@@ -34,7 +34,7 @@ export function buildCardTitle(node: OstNode): string {
   return `${prefix}${title}${suffix}`;
 }
 
-export function buildCardDescription(node: OstNode): string {
+export function buildCardDescription(node: SpaceNode): string {
   const parts: string[] = [];
 
   const type = node.schemaData.type as string;

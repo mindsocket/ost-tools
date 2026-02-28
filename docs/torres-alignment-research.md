@@ -26,7 +26,7 @@ Source: producttalk.org/glossary-discovery-opportunity-solution-tree, "Continuou
 | Solution | `solution` | Good match |
 | Assumption Test | *(absent)* | **Gap — entirely missing** |
 | — | `dashboard` | Tooling type, not OST concept |
-| — | `ost_on_a_page` | Tooling type, not OST concept |
+| — | `space_on_a_page` | Tooling type, not OST concept |
 
 ---
 
@@ -114,7 +114,7 @@ Add a note in the schema and/or README explaining which node types are standard 
 
 - **Standard Torres:** `opportunity`, `solution`
 - **Outcome-level extensions:** `vision`, `mission`, `goal` (filling the role Torres' "desired outcome" plays, but with more strategic structure)
-- **Tooling types:** `dashboard`, `ost_on_a_page`
+- **Tooling types:** `dashboard`, `space_on_a_page`
 - **Missing Torres type:** `assumption_test`
 
 ### Option B: Add a "strict" schema mode (medium change)

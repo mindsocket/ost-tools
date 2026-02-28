@@ -1,10 +1,10 @@
 import { statSync } from 'node:fs';
 import type { ErrorObject } from 'ajv';
-import { createValidator } from './config.js';
-import { readOstOnAPage } from './read-ost-on-a-page.js';
-import { readSpace } from './read-space.js';
-import { wikilinkToTarget } from './resolve-links.js';
-import type { OstNode } from './types.js';
+import { readSpaceDirectory } from '../read-space-directory';
+import { readSpaceOnAPage } from '../read-space-on-a-page';
+import { wikilinkToTarget } from '../resolve-links';
+import { createValidator } from '../schema';
+import type { SpaceNode } from '../types';
 
 interface ValidationResult {
   schemaValidCount: number;
@@ -12,20 +12,20 @@ interface ValidationResult {
   schemaErrors: Array<{ file: string; errors: ErrorObject[] }>;
   refErrors: Array<{ file: string; parent: string; error: string }>;
   skipped: string[];
-  nonOst: string[];
+  nonSpace: string[];
 }
 
 export async function validate(path: string, options: { schema: string }): Promise<void> {
   const validateFunc = createValidator(options.schema);
 
-  let nodes: OstNode[];
+  let nodes: SpaceNode[];
   let skipped: string[] = [];
-  let nonOst: string[] = [];
+  let nonSpace: string[] = [];
 
   if (statSync(path).isFile()) {
-    ({ nodes } = readOstOnAPage(path));
+    ({ nodes } = readSpaceOnAPage(path, options.schema));
   } else {
-    ({ nodes, skipped, nonOst } = await readSpace(path));
+    ({ nodes, skipped, nonSpace: nonSpace } = await readSpaceDirectory(path, { schemaPath: options.schema }));
   }
 
   const result: ValidationResult = {
@@ -34,7 +34,7 @@ export async function validate(path: string, options: { schema: string }): Promi
     schemaErrors: [],
     refErrors: [],
     skipped,
-    nonOst,
+    nonSpace: nonSpace,
   };
 
   for (const node of nodes) {
@@ -52,7 +52,7 @@ export async function validate(path: string, options: { schema: string }): Promi
   }
 
   // Parent refs are resolved to canonical titles on node.resolvedParent in read-* code.
-  const nodeIndex = new Map<string, OstNode>();
+  const nodeIndex = new Map<string, SpaceNode>();
   for (const n of nodes) {
     nodeIndex.set(n.schemaData.title as string, n);
   }
@@ -81,22 +81,22 @@ export async function validate(path: string, options: { schema: string }): Promi
   }
 
   // Report
-  console.log(`\n🔍 OST Validation Results`);
+  console.log(`\n🔍 Space Validation Results`);
   console.log(`━`.repeat(50));
   console.log(`✅ Valid: ${result.schemaValidCount}`);
   console.log(`❌ Schema Errors: ${result.schemaErrorCount}`);
   console.log(`🔗 Reference Errors: ${result.refErrors.length}`);
   console.log(`⏭ Skipped (no frontmatter): ${result.skipped.length}`);
-  console.log(`📄 Non-OST (no type field): ${result.nonOst.length}`);
+  console.log(`📄 Non-space (no type field): ${result.nonSpace.length}`);
 
   if (result.skipped.length > 0) {
     console.log(`\n⏭ Skipped files (no frontmatter):`);
     for (const f of result.skipped) console.log(`   ${f}`);
   }
 
-  if (result.nonOst.length > 0) {
-    console.log(`\n📄 Non-OST files (no type field):`);
-    for (const f of result.nonOst) console.log(`   ${f}`);
+  if (result.nonSpace.length > 0) {
+    console.log(`\n📄 Non-space files (no type field):`);
+    for (const f of result.nonSpace) console.log(`   ${f}`);
   }
 
   if (result.schemaErrors.length > 0) {

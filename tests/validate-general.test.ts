@@ -1,20 +1,20 @@
 import { beforeAll, describe, expect, it } from 'bun:test';
 import { join } from 'node:path';
-import { createValidator } from '../src/config.js';
-import { readOstOnAPage } from '../src/read-ost-on-a-page.js';
-import { readSpace } from '../src/read-space.js';
-import { resolveParentLinks } from '../src/resolve-links.js';
-import type { OstNode } from '../src/types.js';
+import { readSpaceDirectory } from '../src/read-space-directory';
+import { readSpaceOnAPage } from '../src/read-space-on-a-page';
+import { resolveParentLinks } from '../src/resolve-links';
+import { createValidator } from '../src/schema';
+import type { SpaceNode } from '../src/types';
 
 const DEFAULT_SCHEMA_PATH = join(import.meta.dir, '../schemas/general.json');
-const VALID_DIR = join(import.meta.dir, 'fixtures/valid-ost');
-const INVALID_DIR = join(import.meta.dir, 'fixtures/invalid-ost');
-const VALID_PAGE = join(import.meta.dir, 'fixtures/on-a-page-valid.md');
+const VALID_DIR = join(import.meta.dir, 'fixtures/general/valid-ost');
+const INVALID_DIR = join(import.meta.dir, 'fixtures/general/invalid-ost');
+const VALID_PAGE = join(import.meta.dir, 'fixtures/general/on-a-page-valid.md');
 
 const validateNode = createValidator(DEFAULT_SCHEMA_PATH);
 
 /** Inline ref-check helper - mirrors the logic in validate.ts. */
-function checkRefErrors(nodes: OstNode[]): Array<{ file: string; parent: string }> {
+function checkRefErrors(nodes: SpaceNode[]): Array<{ file: string; parent: string }> {
   const index = new Set(nodes.map((n) => n.schemaData.title as string));
 
   return nodes
@@ -28,11 +28,11 @@ function checkRefErrors(nodes: OstNode[]): Array<{ file: string; parent: string 
 }
 
 describe('Schema validation', () => {
-  describe('valid-ost nodes (readSpace)', () => {
-    let nodes: OstNode[];
+  describe('valid-ost nodes (readSpaceDirectory)', () => {
+    let nodes: SpaceNode[];
 
     beforeAll(async () => {
-      ({ nodes } = await readSpace(VALID_DIR));
+      ({ nodes } = await readSpaceDirectory(VALID_DIR));
     });
 
     it('all 12 nodes pass schema validation', () => {
@@ -47,11 +47,11 @@ describe('Schema validation', () => {
     });
   });
 
-  describe('on-a-page-valid.md nodes (readOstOnAPage)', () => {
-    let nodes: OstNode[];
+  describe('on-a-page-valid.md nodes (readSpaceOnAPage)', () => {
+    let nodes: SpaceNode[];
 
     beforeAll(() => {
-      ({ nodes } = readOstOnAPage(VALID_PAGE));
+      ({ nodes } = readSpaceOnAPage(VALID_PAGE));
     });
 
     it('all nodes pass schema validation', () => {
@@ -62,11 +62,11 @@ describe('Schema validation', () => {
     });
   });
 
-  describe('invalid-ost nodes (readSpace)', () => {
-    let nodes: OstNode[];
+  describe('invalid-ost nodes (readSpaceDirectory)', () => {
+    let nodes: SpaceNode[];
 
     beforeAll(async () => {
-      ({ nodes } = await readSpace(INVALID_DIR));
+      ({ nodes } = await readSpaceDirectory(INVALID_DIR));
     });
 
     it('missing-status.md fails schema validation (no status field)', () => {
@@ -95,7 +95,7 @@ describe('Schema validation', () => {
 
   describe('link-target parent resolution', () => {
     it('resolves anchor/section wikilinks to canonical parent titles', () => {
-      const nodes: OstNode[] = [
+      const nodes: SpaceNode[] = [
         {
           label: 'anchor_vision.md',
           schemaData: { title: 'anchor_vision', type: 'vision', status: 'active' },
@@ -143,7 +143,7 @@ describe('Schema validation', () => {
     });
 
     it('keeps unresolved parent links untouched when no link target matches', () => {
-      const nodes: OstNode[] = [
+      const nodes: SpaceNode[] = [
         {
           label: 'anchor_vision.md',
           schemaData: { title: 'anchor_vision', type: 'vision', status: 'active' },
@@ -169,7 +169,7 @@ describe('Schema validation', () => {
     });
 
     it('does not resolve bare embedded-node title links when no page exists', () => {
-      const nodes: OstNode[] = [
+      const nodes: SpaceNode[] = [
         {
           label: 'vision_page.md',
           schemaData: { title: 'vision_page', type: 'vision', status: 'active' },

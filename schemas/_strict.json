@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "ost-tools://_strict",
+  // Shared definitions for the strict OST (Opportunity Solution Tree) schema.
+  // This schema follows Teresa Torres' canonical 4-level structure as described in
+  // "Continuous Discovery Habits" (2021) and at producttalk.org.
+  "$defs": {
+    "_metadata": {
+      "hierarchy": ["outcome", "opportunity", "solution", "experiment"],
+      "rules": {
+        "general": [
+          "Only one outcome should be active at a time",
+          "Only one target opportunity should be active at a time"
+        ],
+        "outcome": ["Should be a specific product metric with a directional component (e.g., 'increase X')"],
+        "opportunity": [
+          "Frame in the customer's voice — something a customer would actually say",
+          "Must be in the problem space (addressable by more than one solution)",
+          "Must be grounded in customer research (use the 'source' field to track origin)"
+        ],
+        "solution": [
+          "Parent must be an opportunity (not another solution)",
+          "Explore multiple candidate solutions (aim for at least three) for the target opportunity before committing to one"
+        ],
+        "experiment": [
+          "Parent must be a solution",
+          "Tests a single assumption — not the whole idea",
+          "Run tests on the riskiest assumption for each solution candidate"
+        ]
+      }
+    },
+    "outcomeProps": {
+      "type": "object",
+      "description": "Properties for an Outcome node (product metric, not vision/mission)",
+      "properties": {
+        "metric": {
+          "type": "string",
+          "description": "The specific product metric to move (e.g., 'Increase % of first-time users who reach the aha moment')"
+        }
+      },
+      "required": ["metric"]
+    },
+    "opportunityProps": {
+      "type": "object",
+      "description": "Properties for an Opportunity, emphasizing research grounding",
+      "properties": {
+        "source": {
+          "type": "string",
+          "description": "Customer research source that grounded this opportunity (e.g., 'Interview with Jane, 2024-03-15')"
+        }
+      },
+      "required": ["source"]
+    },
+    "experimentProps": {
+      "type": "object",
+      "description": "Properties for an Assumption Test (the fourth level of the OST)",
+      "properties": {
+        "assumption": {
+          "type": "string",
+          "description": "The specific belief being tested"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["desirability", "viability", "feasibility", "usability", "ethical"],
+          "description": "Assumption type categories"
+        }
+      },
+      "required": ["assumption"]
+    }
+  }
+}

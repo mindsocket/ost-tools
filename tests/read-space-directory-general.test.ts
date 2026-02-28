@@ -1,17 +1,17 @@
 import { beforeAll, describe, expect, it } from 'bun:test';
 import { join } from 'node:path';
-import { readSpace } from '../src/read-space.js';
-import type { SpaceReadResult } from '../src/types.js';
+import { readSpaceDirectory } from '../src/read-space-directory';
+import type { SpaceDirectoryReadResult } from '../src/types';
 
-const VALID_DIR = join(import.meta.dir, 'fixtures/valid-ost');
-const INVALID_DIR = join(import.meta.dir, 'fixtures/invalid-ost');
+const VALID_DIR = join(import.meta.dir, 'fixtures/general/valid-ost');
+const INVALID_DIR = join(import.meta.dir, 'fixtures/general/invalid-ost');
 
-describe('readSpace', () => {
+describe('readSpaceDirectory', () => {
   describe('valid-ost directory', () => {
-    let result: SpaceReadResult;
+    let result: SpaceDirectoryReadResult;
 
     beforeAll(async () => {
-      result = await readSpace(VALID_DIR);
+      result = await readSpaceDirectory(VALID_DIR);
     });
 
     it('returns 12 OST nodes (5 original + vision_page + 2 embedded + solution_page + anchor_vision + 2 embedded)', () => {
@@ -28,7 +28,7 @@ describe('readSpace', () => {
     });
 
     it('puts meeting-notes.md in nonOst', () => {
-      expect(result.nonOst).toContain('meeting-notes.md');
+      expect(result.nonSpace).toContain('meeting-notes.md');
     });
 
     it('skipped files do not appear in nodes', () => {
@@ -53,15 +53,15 @@ describe('readSpace', () => {
 
     it('Community OST.md does not appear in skipped or nonOst', () => {
       expect(result.skipped.includes('Community OST.md')).toBe(false);
-      expect(result.nonOst.includes('Community OST.md')).toBe(false);
+      expect(result.nonSpace.includes('Community OST.md')).toBe(false);
     });
   });
 
   describe('embedded nodes in typed pages', () => {
-    let result: SpaceReadResult;
+    let result: SpaceDirectoryReadResult;
 
     beforeAll(async () => {
-      result = await readSpace(VALID_DIR);
+      result = await readSpaceDirectory(VALID_DIR);
     });
 
     it('includes vision_page.md as its own node', () => {
@@ -110,10 +110,10 @@ describe('readSpace', () => {
   });
 
   describe('anchor-implied type inference', () => {
-    let result: SpaceReadResult;
+    let result: SpaceDirectoryReadResult;
 
     beforeAll(async () => {
-      result = await readSpace(VALID_DIR);
+      result = await readSpaceDirectory(VALID_DIR);
     });
 
     it('infers type "mission" from ^mission anchor', () => {
@@ -153,7 +153,7 @@ describe('readSpace', () => {
 
   describe('invalid-ost directory', () => {
     it('returns all 3 nodes regardless of schema validity', async () => {
-      const result = await readSpace(INVALID_DIR);
+      const result = await readSpaceDirectory(INVALID_DIR);
       expect(result.nodes).toHaveLength(3);
     });
   });

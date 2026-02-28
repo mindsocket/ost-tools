@@ -1,12 +1,12 @@
 #!/usr/bin/env bun
 import { Command } from 'commander';
-import { loadConfig, resolveSchema, resolveSpacePath, resolveTemplateDir } from './config.js';
-import { diagram } from './diagram.js';
-import { dump } from './dump.js';
-import { miroSync } from './miro/sync.js';
-import { show } from './show.js';
-import { templateSync } from './template-sync.js';
-import { validate } from './validate.js';
+import { diagram } from './commands/diagram';
+import { dump } from './commands/dump';
+import { show } from './commands/show';
+import { templateSync } from './commands/template-sync';
+import { validate } from './commands/validate';
+import { loadConfig, resolveSchema, resolveSpacePath, resolveTemplateDir } from './config';
+import { miroSync } from './miro/sync';
 
 const program = new Command();
 
@@ -17,8 +17,8 @@ program
 
 program
   .command('validate')
-  .description('Validate OST nodes against JSON schema')
-  .argument('<space-dir-or-file>', 'Space alias, directory path, or OST-on-a-page .md file')
+  .description('Validate space against JSON schema')
+  .argument('<space-dir-or-file>', 'Space alias, directory path, or space_on_a_page .md file')
   .option('-s, --schema <path>', 'Path to JSON schema file')
   .action((spaceOrDir, options) => {
     const config = loadConfig();
@@ -31,8 +31,8 @@ program
 
 program
   .command('diagram')
-  .description('Generate mermaid diagram from OST nodes')
-  .argument('<space-dir-or-file>', 'Space alias, directory path, or OST-on-a-page .md file')
+  .description('Generate mermaid diagram from space')
+  .argument('<space-dir-or-file>', 'Space alias, directory path, or space_on_a_page .md file')
   .option('-o, --output <path>', 'Output file path (default: stdout)')
   .option('-s, --schema <path>', 'Path to JSON schema file')
   .action((spaceOrDir, options) => {
@@ -46,19 +46,19 @@ program
 
 program
   .command('show')
-  .description('Print OST tree as an indented list')
-  .argument('<space-dir-or-file>', 'Space alias, directory path, or OST-on-a-page .md file')
+  .description('Print space tree as an indented list')
+  .argument('<space-dir-or-file>', 'Space alias, directory path, or space_on_a_page .md file')
   .action((arg) => show(resolveSpacePath(arg, loadConfig())));
 
 program
   .command('dump')
-  .description('Dump parsed OST nodes as JSON')
-  .argument('<space-dir-or-file>', 'Space alias, directory path, or OST-on-a-page .md file')
+  .description('Dump parsed space nodes as JSON')
+  .argument('<space-dir-or-file>', 'Space alias, directory path, or space_on_a_page .md file')
   .action((arg) => dump(resolveSpacePath(arg, loadConfig())));
 
 program
   .command('miro-sync')
-  .description('Sync OST tree to a Miro board')
+  .description('Sync space to a Miro board')
   .argument('<space>', 'Space alias (must have miroBoardId in config)')
   .option('--new-frame <title>', 'Create a new frame on the board and sync into it')
   .option('--dry-run', 'Show what would change without touching Miro')
@@ -67,8 +67,8 @@ program
 
 program
   .command('template-sync')
-  .description('Sync OST template frontmatter with schema examples')
-  .argument('[template-dir]', 'Directory containing OST template markdown files')
+  .description('Sync template frontmatter with schema examples')
+  .argument('[template-dir]', 'Directory containing template markdown files')
   .option('-s, --schema <path>', 'Path to JSON schema file')
   .option('--dry-run', 'Preview changes without writing files')
   .action((templateDir, options) => {

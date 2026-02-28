@@ -1,4 +1,4 @@
-import type { OstNode } from '../types.js';
+import type { SpaceNode } from '../types';
 
 const TYPE_DEPTH: Record<string, number> = {
   vision: 0,
@@ -28,7 +28,7 @@ export interface LayoutResult {
  * Returns positions and a bounding box covering all cards (for frame sizing).
  */
 export function layoutNewCards(
-  newNodes: OstNode[],
+  newNodes: SpaceNode[],
   existingPositions: Map<string, { x: number; y: number }>,
 ): LayoutResult {
   // Find the lowest y among existing cards
@@ -42,7 +42,7 @@ export function layoutNewCards(
   const startY = existingPositions.size > 0 ? lowestY + V_GAP * 2 : 0;
 
   // Group new nodes by depth
-  const byDepth = new Map<number, OstNode[]>();
+  const byDepth = new Map<number, SpaceNode[]>();
   for (const node of newNodes) {
     const depth = TYPE_DEPTH[node.schemaData.type as string] ?? 4;
     if (!byDepth.has(depth)) byDepth.set(depth, []);

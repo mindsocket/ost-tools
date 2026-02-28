@@ -1,0 +1,118 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "ost-tools://strict_ost",
+  "title": "Opportunity Solution Tree (Strict)",
+  // Follows Teresa Torres' 4-level OST structure as described in "Continuous Discovery Habits" (2021)
+  // and at producttalk.org.
+  // Structure: outcome → opportunity → solution → assumption test
+  "description": "Validates frontmatter for space node files following the canonical 4-level OST structure: outcome → opportunity → solution → assumption test",
+  "$defs": {
+    "_metadata": {
+      "hierarchy": ["outcome", "opportunity", "solution", "experiment"]
+    }
+  },
+  "oneOf": [
+    {
+      "type": "object",
+      "allOf": [
+        { "$ref": "ost-tools://_shared#/$defs/baseNodeProps" },
+        { "$ref": "ost-tools://_shared#/$defs/ostEntityProps" },
+        { "$ref": "ost-tools://_strict#/$defs/outcomeProps" }
+      ],
+      "properties": {
+        "type": { "const": "outcome" }
+      },
+      "required": ["type"],
+      "not": { "required": ["parent"] },
+      "additionalProperties": true,
+      "examples": [
+        {
+          "type": "outcome",
+          "status": "active",
+          "metric": "Increase % of first-time users who reach the aha moment"
+        }
+      ]
+    },
+    {
+      "type": "object",
+      "allOf": [
+        { "$ref": "ost-tools://_shared#/$defs/baseNodeProps" },
+        { "$ref": "ost-tools://_shared#/$defs/ostEntityProps" },
+        { "$ref": "ost-tools://_strict#/$defs/opportunityProps" }
+      ],
+      "properties": {
+        "type": { "const": "opportunity" },
+        "parent": {
+          "$ref": "ost-tools://_shared#/$defs/wikilink",
+          "description": "Parent outcome or opportunity (wikilink). The OST methodology allows nested opportunity hierarchies."
+        }
+      },
+      "required": ["type"],
+      "additionalProperties": true,
+      "examples": [
+        {
+          "type": "opportunity",
+          "status": "active",
+          "parent": "[[Increase Trial Conversion]]",
+          "source": "Interview with Sarah, 2024-02-10 - mentioned she drops off during signup"
+        }
+      ]
+    },
+    {
+      "type": "object",
+      "allOf": [
+        { "$ref": "ost-tools://_shared#/$defs/baseNodeProps" },
+        { "$ref": "ost-tools://_shared#/$defs/ostEntityProps" }
+      ],
+      "properties": {
+        "type": { "const": "solution" },
+        "parent": {
+          "$ref": "ost-tools://_shared#/$defs/wikilink",
+          "description": "Parent opportunity (wikilink). The OST methodology requires solutions connect directly to opportunities."
+        }
+      },
+      "required": ["type"],
+      "additionalProperties": true,
+      "examples": [
+        {
+          "type": "solution",
+          "status": "identified",
+          "parent": "[[Simplify Signup Flow]]"
+        }
+      ]
+    },
+    {
+      "type": "object",
+      "allOf": [
+        { "$ref": "ost-tools://_shared#/$defs/baseNodeProps" },
+        { "$ref": "ost-tools://_shared#/$defs/ostEntityProps" },
+        { "$ref": "ost-tools://_strict#/$defs/experimentProps" }
+      ],
+      "properties": {
+        "type": { "enum": ["experiment", "assumption_test", "test"] },
+        "parent": {
+          "$ref": "ost-tools://_shared#/$defs/wikilink",
+          "description": "Parent solution (wikilink)"
+        }
+      },
+      "required": ["type"],
+      "additionalProperties": true,
+      "examples": [
+        {
+          "type": "assumption_test",
+          "status": "exploring",
+          "parent": "[[Simplify Signup Flow]]",
+          "assumption": "Users can complete the simplified signup in under 2 minutes",
+          "category": "usability"
+        },
+        {
+          "type": "test",
+          "status": "active",
+          "parent": "[[Prototype Landing Page]]",
+          "assumption": "Users will understand the value proposition within 5 seconds",
+          "category": "desirability"
+        }
+      ]
+    }
+  ]
+}

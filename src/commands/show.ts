@@ -1,24 +1,24 @@
 import { statSync } from 'node:fs';
-import { readOstOnAPage } from './read-ost-on-a-page.js';
-import { readSpace } from './read-space.js';
-import type { OstNode } from './types.js';
+import { readSpaceDirectory } from '../read-space-directory';
+import { readSpaceOnAPage } from '../read-space-on-a-page';
+import type { SpaceNode } from '../types';
 
 export async function show(path: string) {
-  let nodes: OstNode[];
+  let nodes: SpaceNode[];
 
   if (statSync(path).isFile()) {
-    ({ nodes } = readOstOnAPage(path));
+    ({ nodes } = readSpaceOnAPage(path));
   } else {
-    ({ nodes } = await readSpace(path));
+    ({ nodes } = await readSpaceDirectory(path));
   }
 
   // Build children map (parent title → child nodes in document order)
-  const children = new Map<string, OstNode[]>();
+  const children = new Map<string, SpaceNode[]>();
   for (const node of nodes) {
     children.set(node.schemaData.title as string, []);
   }
 
-  const roots: OstNode[] = [];
+  const roots: SpaceNode[] = [];
   for (const node of nodes) {
     const parent = node.resolvedParent;
     if (!parent) {
@@ -33,7 +33,7 @@ export async function show(path: string) {
     }
   }
 
-  function printNode(node: OstNode, depth: number) {
+  function printNode(node: SpaceNode, depth: number) {
     const indent = '  '.repeat(depth);
     const type = node.schemaData.type as string;
     const title = node.schemaData.title as string;

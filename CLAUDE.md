@@ -1,6 +1,6 @@
 # OST Tools
 
-Opportunity Solution Tree (OST) validation and diagram generation tooling.
+Tools for working with Opportunity Solution Tree structures and other product management and strategy frameworks
 
 ## Development
 
@@ -9,7 +9,7 @@ Space aliases (e.g. `personal`, `politics`) are resolved via `config.json`.
 
 ## Project Context
 
-This project validates OST node markdown files against a JSON schema.
+This project validates data in markdown files against a JSON schema representing product and strategy frameworks, including Opportunity Solution Trees.
 
 Before starting new work, review [docs/concepts.md](docs/concepts.md) for canonical terminology. Use and maintain the definitions there as the source of truth when naming things in code, tests, comments, and documentation.
 

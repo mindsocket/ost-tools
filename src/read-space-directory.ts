@@ -2,18 +2,25 @@ import { readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { glob } from 'glob';
 import matter from 'gray-matter';
-import { extractEmbeddedNodes } from './parse-embedded.js';
-import { resolveParentLinks } from './resolve-links.js';
-import type { OstNode, SpaceReadResult } from './types.js';
+import { loadConfig, resolveSchema } from './config';
+import { extractEmbeddedNodes, ON_A_PAGE_TYPES } from './parse-embedded';
+import { resolveParentLinks } from './resolve-links';
+import { loadHierarchy } from './schema';
+import type { SpaceDirectoryReadResult, SpaceNode } from './types';
 
-export async function readSpace(
+export async function readSpaceDirectory(
   directory: string,
-  options?: { includeOnAPageFiles?: boolean },
-): Promise<SpaceReadResult> {
+  options?: { includeOnAPageFiles?: boolean; schemaPath?: string },
+): Promise<SpaceDirectoryReadResult> {
   const files = await glob('**/*.md', { cwd: directory, absolute: false });
-  const nodes: OstNode[] = [];
+  const nodes: SpaceNode[] = [];
   const skipped: string[] = [];
-  const nonOst: string[] = [];
+  const nonSpace: string[] = [];
+
+  // Resolve schema and load hierarchy for depth-based type inference
+  const config = loadConfig();
+  const resolvedSchemaPath = resolveSchema(options?.schemaPath, config);
+  const hierarchyArray = loadHierarchy(resolvedSchemaPath);
 
   for (const file of files) {
     const content = readFileSync(join(directory, file), 'utf-8');
@@ -25,11 +32,11 @@ export async function readSpace(
     }
 
     if (!parsed.data.type) {
-      nonOst.push(file);
+      nonSpace.push(file);
       continue;
     }
 
-    if (parsed.data.type === 'ost_on_a_page' && !options?.includeOnAPageFiles) {
+    if (ON_A_PAGE_TYPES.includes(parsed.data.type) && !options?.includeOnAPageFiles) {
       continue;
     }
 
@@ -43,16 +50,17 @@ export async function readSpace(
     });
 
     // Extract embedded child nodes from the page body (typed pages with embedded nodes).
-    // ost_on_a_page files are already excluded above.
-    if (pageType !== 'ost_on_a_page') {
+    // space_on_a_page files are already excluded above.
+    if (!ON_A_PAGE_TYPES.includes(pageType)) {
       const { nodes: embedded } = extractEmbeddedNodes(parsed.content, {
         pageTitle: fileBase,
         pageType,
+        hierarchy: hierarchyArray,
       });
       nodes.push(...embedded);
     }
   }
 
   resolveParentLinks(nodes);
-  return { nodes, skipped, nonOst };
+  return { nodes, skipped, nonSpace };
 }
