@@ -38,8 +38,6 @@ Key properties:
 - Heading levels must not skip — each level must be exactly one deeper than its parent.
 - A horizontal rule (`---`) terminates parsing; headings below it are ignored.
 
-> The name "OST on a page" may be revised as the tooling moves toward space-centric terminology — see [GitHub issue #22](https://github.com/mindsocket/ost-tools/issues/22).
-
 #### Preamble
 
 **Preamble** is content in a `space on a page` document that appears before the first heading. It is parsed but discarded — not associated with any node.
@@ -80,7 +78,7 @@ A **schema** defines the valid structure for nodes in a `space`: the fields, typ
 
 The schema handles structural validation. It does not encode qualitative or cross-node checks — those are handled by `rules`, which may be embedded within the schema or applied separately.
 
-Schemas are designed to be composable: shared building blocks (common field sets, scoring models, constraint overlays) can be referenced across schema files, letting teams tailor a schema without forking their foundations. *(Schema composability is under active development — see [GitHub issues #13](https://github.com/mindsocket/ost-tools/issues/13), [#17](https://github.com/mindsocket/ost-tools/issues/17).)*
+Schemas are designed to be composable: shared building blocks (common field sets, scoring models, constraint overlays) can be referenced across schema files, letting teams tailor a schema without forking their foundations. *(Schema composability is under development — see [GitHub issue #17](https://github.com/mindsocket/ost-tools/issues/17).)*
 
 ### Rules
 
@@ -98,7 +96,7 @@ Rules may be:
 
 Rules are distinct from schema validation: the schema checks structure; rules check meaning and quality.
 
-*(Rules support is planned — see [GitHub issue #16](https://github.com/mindsocket/ost-tools/issues/16).)*
+See [docs/rules.md](rules.md) for the rules reference, including JSONata expression syntax and the full `_metadata` field reference.
 
 ---
 

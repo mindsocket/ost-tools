@@ -3,14 +3,18 @@ import type { ErrorObject } from 'ajv';
 import { readSpaceDirectory } from '../read-space-directory';
 import { readSpaceOnAPage } from '../read-space-on-a-page';
 import { wikilinkToTarget } from '../resolve-links';
-import { createValidator } from '../schema';
-import type { SpaceNode } from '../types';
+import { createValidator, loadMetadata } from '../schema';
+import type { HierarchyViolation, RuleViolation, SpaceNode } from '../types';
+import { validateHierarchy } from '../validate-hierarchy';
+import { validateRules } from '../validate-rules';
 
 interface ValidationResult {
   schemaValidCount: number;
   schemaErrorCount: number;
   schemaErrors: Array<{ file: string; errors: ErrorObject[] }>;
   refErrors: Array<{ file: string; parent: string; error: string }>;
+  ruleViolations: RuleViolation[];
+  hierarchyViolations: HierarchyViolation[];
   skipped: string[];
   nonSpace: string[];
 }
@@ -33,6 +37,8 @@ export async function validate(path: string, options: { schema: string }): Promi
     schemaErrorCount: 0,
     schemaErrors: [],
     refErrors: [],
+    ruleViolations: [],
+    hierarchyViolations: [],
     skipped,
     nonSpace: nonSpace,
   };
@@ -80,12 +86,23 @@ export async function validate(path: string, options: { schema: string }): Promi
     }
   }
 
+  // Load and execute hierarchy validation if schema defines hierarchy
+  const metadata = loadMetadata(options.schema);
+  result.hierarchyViolations = validateHierarchy(nodes, metadata);
+
+  // Load and execute rules validation if schema defines rules
+  if (metadata.rules) {
+    result.ruleViolations = await validateRules(nodes, metadata.rules);
+  }
+
   // Report
   console.log(`\n🔍 Space Validation Results`);
   console.log(`━`.repeat(50));
   console.log(`✅ Valid: ${result.schemaValidCount}`);
   console.log(`❌ Schema Errors: ${result.schemaErrorCount}`);
   console.log(`🔗 Reference Errors: ${result.refErrors.length}`);
+  console.log(`📋 Rule Violations: ${result.ruleViolations.length}`);
+  console.log(`🏗️  Hierarchy Violations: ${result.hierarchyViolations.length}`);
   console.log(`⏭ Skipped (no frontmatter): ${result.skipped.length}`);
   console.log(`📄 Non-space (no type field): ${result.nonSpace.length}`);
 
@@ -116,9 +133,42 @@ export async function validate(path: string, options: { schema: string }): Promi
     });
   }
 
+  if (result.ruleViolations.length > 0) {
+    console.log(`\n📋 Rule violations:`);
+
+    // Group by category
+    const byCategory = new Map<string, RuleViolation[]>();
+    for (const v of result.ruleViolations) {
+      if (!byCategory.has(v.category)) {
+        byCategory.set(v.category, []);
+      }
+      byCategory.get(v.category)!.push(v);
+    }
+
+    // Report each category
+    for (const [category, violations] of byCategory) {
+      console.log(`  ${category.toUpperCase()} (${violations.length}):`);
+      for (const v of violations) {
+        console.log(`    ${v.file ? `${v.file}: ` : ''}${v.description}`);
+      }
+    }
+  }
+
+  if (result.hierarchyViolations.length > 0) {
+    console.log(`\n🏗️  Hierarchy violations:`);
+    for (const v of result.hierarchyViolations) {
+      console.log(`   ${v.file}: ${v.description}`);
+    }
+  }
+
   console.log(`\n`);
 
-  if (result.schemaErrorCount > 0 || result.refErrors.length > 0) {
+  if (
+    result.schemaErrorCount > 0 ||
+    result.refErrors.length > 0 ||
+    result.ruleViolations.length > 0 ||
+    result.hierarchyViolations.length > 0
+  ) {
     process.exit(1);
   }
 }
