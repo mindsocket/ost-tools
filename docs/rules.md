@@ -6,12 +6,13 @@ For how rules fit into the broader schema metadata, see [docs/schemas.md](schema
 
 ## Rule Categories
 
-Rules are grouped into three categories under `_metadata.rules`.
+Rules are grouped into categories under `_metadata.rules`. Categories are informational — they determine how violations are labelled and grouped in output, but do not affect how the rule is evaluated. Use `scope` to control evaluation mode.
 
 | Category | Purpose |
 |---|---|
 | `validation` | Structural correctness — a violation means the node is incorrect and should be fixed |
-| `coherence` | Cross-node checks — for flagging conflicts or contradictions (often combined with `scope: 'global'` for multi-node/aggregate checks) |
+| `coherence` | Cross-node checks — for flagging conflicts or contradictions between nodes |
+| `workflow` | Process discipline checks — for keeping the tree in an operational working state (active counts, status consistency) |
 | `bestPractice` | Advisory guidance — signals the space may benefit from additional work |
 
 ## Rule Object Structure
@@ -64,7 +65,7 @@ $exists(parent) = false   // true for root nodes
 
 ```json
 {
-  "coherence": [
+  "workflow": [
     {
       "id": "active-outcome-count",
       "description": "Only one outcome should be active at a time",
@@ -72,10 +73,9 @@ $exists(parent) = false   // true for root nodes
       "check": "$count(nodes[resolvedType='outcome' and status='active']) <= 1"
     },
     {
-      "id": "active-opportunity-count",
-      "description": "Only one target opportunity should be active at a time",
-      "scope": "global",
-      "check": "$count(nodes[resolvedType='opportunity' and status='active']) <= 1"
+      "id": "active-node-parent-active",
+      "description": "An active node's parent should also be active",
+      "check": "current.status != 'active' or $exists(parent) = false or parent.status = 'active'"
     }
   ],
   "bestPractice": [
@@ -83,10 +83,10 @@ $exists(parent) = false   // true for root nodes
       "id": "solution-quantity",
       "description": "Explore multiple candidate solutions (aim for at least three) for the target opportunity",
       "type": "opportunity",
-      "check": "$count(nodes[resolvedParentTitle=$$.current.title and resolvedType='solution']) >= 3"
+      "check": "(current.status != 'exploring' and current.status != 'active') or $count(nodes[resolvedParentTitle=$$.current.title and resolvedType='solution']) >= 3"
     }
   ]
 }
 ```
 
-The coherence rules run against every node (no `type` filter) — each node in a space with two active outcomes will report a violation. The best-practice rule only runs against `opportunity` nodes, using `resolvedParentTitle` to count child solutions.
+The first workflow rule uses `scope: 'global'` — evaluated once against the whole space, producing at most one violation. The second runs per-node with no `type` filter, checking every node. The best-practice rule only runs against `opportunity` nodes where status is `exploring` or `active`, using `resolvedParentTitle` to count child solutions.

@@ -30,7 +30,7 @@ export interface SpaceDirectoryReadResult {
 }
 
 /** Rule categories for organizing executable validation rules */
-export type RuleCategory = 'validation' | 'coherence' | 'best-practice';
+export type RuleCategory = 'validation' | 'coherence' | 'workflow' | 'best-practice';
 
 /** A single executable rule with JSONata check expression */
 export interface Rule {
@@ -47,6 +47,7 @@ export interface Rule {
 export interface RulesMetadata {
   validation?: Rule[];
   coherence?: Rule[];
+  workflow?: Rule[];
   bestPractice?: Rule[];
 }
 

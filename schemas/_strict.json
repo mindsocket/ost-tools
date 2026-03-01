@@ -9,7 +9,7 @@
       "hierarchy": ["outcome", "opportunity", "solution", "assumption_test"],
       "allowSelfRef": ["opportunity"],
       "rules": {
-        "coherence": [
+        "workflow": [
           {
             "id": "active-outcome-count",
             "description": "Only one outcome should be active at a time",
@@ -21,6 +21,11 @@
             "description": "Only one target opportunity should be active at a time",
             "scope": "global",
             "check": "$count(nodes[resolvedType='opportunity' and status='active']) <= 1"
+          },
+          {
+            "id": "active-node-parent-active",
+            "description": "An active node's parent should also be active",
+            "check": "current.status != 'active' or $exists(parent) = false or parent.status = 'active'"
           }
         ],
         "bestPractice": [
@@ -28,7 +33,7 @@
             "id": "solution-quantity",
             "description": "Explore multiple candidate solutions (aim for at least three) for the target opportunity",
             "type": "opportunity",
-            "check": "$count(nodes[resolvedParentTitle=$$.current.title and resolvedType='solution']) >= 3"
+            "check": "(current.status != 'exploring' and current.status != 'active') or $count(nodes[resolvedParentTitle=$$.current.title and resolvedType='solution']) >= 3"
           }
         ]
       }

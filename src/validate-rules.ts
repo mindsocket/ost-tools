@@ -25,6 +25,7 @@ export async function validateRules(nodes: SpaceNode[], rules: RulesMetadata): P
   const allCategories: Array<{ category: RuleCategory; rules: Rule[] }> = [
     { category: 'validation', rules: rules.validation ?? [] },
     { category: 'coherence', rules: rules.coherence ?? [] },
+    { category: 'workflow', rules: rules.workflow ?? [] },
     { category: 'best-practice', rules: rules.bestPractice ?? [] },
   ];
 

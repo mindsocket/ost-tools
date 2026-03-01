@@ -138,46 +138,6 @@ describe('validate-rules', () => {
       });
     });
 
-    describe('coherence rules', () => {
-      const coherenceRules: RulesMetadata = {
-        coherence: [
-          {
-            id: 'active-outcome-count',
-            description: 'Only one outcome should be active at a time',
-            scope: 'global',
-            check: '$count(nodes[resolvedType="outcome" and status="active"]) <= 1',
-          },
-        ],
-      };
-
-      it('passes when only one outcome is active', async () => {
-        const nodes = mockNodes.filter((n) => n.schemaData.type === 'outcome');
-        const violations = await validateRules(nodes, coherenceRules);
-        expect(violations).toHaveLength(0);
-      });
-
-      it('detects multiple active outcomes', async () => {
-        const multipleActiveOutcomes: SpaceNode[] = [
-          {
-            label: 'outcome1.md',
-            schemaData: { title: 'Outcome 1', type: 'outcome', status: 'active', metric: 'X' },
-            linkTargets: ['Outcome 1'],
-            resolvedType: 'outcome',
-          },
-          {
-            label: 'outcome2.md',
-            schemaData: { title: 'Outcome 2', type: 'outcome', status: 'active', metric: 'Y' },
-            linkTargets: ['Outcome 2'],
-            resolvedType: 'outcome',
-          },
-        ];
-        const violations = await validateRules(multipleActiveOutcomes, coherenceRules);
-        expect(violations).toHaveLength(1); // Global rule produces one violation for the whole space
-        expect(violations[0]?.ruleId).toBe('active-outcome-count');
-        expect(violations[0]?.file).toBe('');
-      });
-    });
-
     describe('best-practice rules', () => {
       const bestPracticeRules: RulesMetadata = {
         bestPractice: [
@@ -254,6 +214,111 @@ describe('validate-rules', () => {
       });
     });
 
+    describe('workflow rules', () => {
+      const workflowRules: RulesMetadata = {
+        workflow: [
+          {
+            id: 'active-outcome-count',
+            description: 'Only one outcome should be active at a time',
+            scope: 'global',
+            check: '$count(nodes[resolvedType="outcome" and status="active"]) <= 1',
+          },
+          {
+            id: 'active-node-parent-active',
+            description: "An active node's parent should also be active",
+            check: "current.status != 'active' or $exists(parent) = false or parent.status = 'active'",
+          },
+        ],
+      };
+
+      it('passes when only one outcome is active', async () => {
+        const nodes = mockNodes.filter((n) => n.schemaData.type === 'outcome');
+        const violations = await validateRules(nodes, workflowRules);
+        expect(violations).toHaveLength(0);
+      });
+
+      it('detects multiple active outcomes (global scope)', async () => {
+        const multipleActiveOutcomes: SpaceNode[] = [
+          {
+            label: 'outcome1.md',
+            schemaData: { title: 'Outcome 1', type: 'outcome', status: 'active', metric: 'X' },
+            linkTargets: ['Outcome 1'],
+            resolvedType: 'outcome',
+          },
+          {
+            label: 'outcome2.md',
+            schemaData: { title: 'Outcome 2', type: 'outcome', status: 'active', metric: 'Y' },
+            linkTargets: ['Outcome 2'],
+            resolvedType: 'outcome',
+          },
+          {
+            label: 'unrelated.md',
+            schemaData: { title: 'Unrelated', type: 'solution', status: 'exploring' },
+            linkTargets: ['Unrelated'],
+            resolvedType: 'solution',
+          },
+        ];
+        const activeCountViolations = await validateRules(multipleActiveOutcomes, {
+          workflow: [workflowRules.workflow![0]!],
+        });
+        expect(activeCountViolations).toHaveLength(1); // global rule produces one violation regardless of node count
+        expect(activeCountViolations[0]?.ruleId).toBe('active-outcome-count');
+        expect(activeCountViolations[0]?.category).toBe('workflow');
+        expect(activeCountViolations[0]?.file).toBe('');
+      });
+
+      it('detects active node with non-active parent', async () => {
+        const parentNode: SpaceNode = {
+          label: 'outcome.md',
+          schemaData: { title: 'Outcome', type: 'outcome', status: 'inactive', metric: 'X' },
+          linkTargets: ['Outcome'],
+          resolvedType: 'outcome',
+        };
+        const childNode: SpaceNode = {
+          label: 'opportunity.md',
+          schemaData: {
+            title: 'Opportunity',
+            type: 'opportunity',
+            status: 'active',
+            parent: '[[Outcome]]',
+            source: 'Interview',
+          },
+          linkTargets: ['Opportunity'],
+          resolvedParent: 'Outcome',
+          resolvedType: 'opportunity',
+        };
+        const violations = await validateRules([parentNode, childNode], { workflow: [workflowRules.workflow![1]!] });
+        expect(violations).toHaveLength(1);
+        expect(violations[0]?.ruleId).toBe('active-node-parent-active');
+        expect(violations[0]?.category).toBe('workflow');
+        expect(violations[0]?.file).toBe('opportunity.md');
+      });
+
+      it('passes active node when parent is also active', async () => {
+        const parentNode: SpaceNode = {
+          label: 'outcome.md',
+          schemaData: { title: 'Outcome', type: 'outcome', status: 'active', metric: 'X' },
+          linkTargets: ['Outcome'],
+          resolvedType: 'outcome',
+        };
+        const childNode: SpaceNode = {
+          label: 'opportunity.md',
+          schemaData: {
+            title: 'Opportunity',
+            type: 'opportunity',
+            status: 'active',
+            parent: '[[Outcome]]',
+            source: 'Interview',
+          },
+          linkTargets: ['Opportunity'],
+          resolvedParent: 'Outcome',
+          resolvedType: 'opportunity',
+        };
+        const violations = await validateRules([parentNode, childNode], { workflow: [workflowRules.workflow![1]!] });
+        expect(violations).toHaveLength(0);
+      });
+    });
+
     describe('mixed categories', () => {
       const mixedRules: RulesMetadata = {
         validation: [
@@ -264,7 +329,7 @@ describe('validate-rules', () => {
             check: '$exists(parent) = false or $exists(nodes[title=$$.current.parent and resolvedType="opportunity"])',
           },
         ],
-        coherence: [
+        workflow: [
           {
             id: 'active-outcome-count',
             description: 'Only one outcome should be active at a time',
@@ -308,10 +373,10 @@ describe('validate-rules', () => {
         expect(violations.length).toBeGreaterThan(0);
 
         const validationViolations = violations.filter((v) => v.category === 'validation');
-        const coherenceViolations = violations.filter((v) => v.category === 'coherence');
+        const workflowViolations = violations.filter((v) => v.category === 'workflow');
 
         expect(validationViolations.length).toBeGreaterThan(0);
-        expect(coherenceViolations.length).toBeGreaterThan(0);
+        expect(workflowViolations.length).toBeGreaterThan(0);
       });
     });
   });

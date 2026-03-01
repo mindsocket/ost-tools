@@ -9,10 +9,11 @@ import { validateHierarchy } from '../validate-hierarchy';
 import { validateRules } from '../validate-rules';
 
 interface ValidationResult {
-  schemaValidCount: number;
-  schemaErrorCount: number;
-  schemaErrors: Array<{ file: string; errors: ErrorObject[] }>;
+  validCount: number;
+  nodeErrorCount: number;
+  nodeErrors: Array<{ file: string; errors: ErrorObject[] }>;
   refErrors: Array<{ file: string; parent: string; error: string }>;
+  configErrors: string[];
   ruleViolations: RuleViolation[];
   hierarchyViolations: HierarchyViolation[];
   skipped: string[];
@@ -33,10 +34,11 @@ export async function validate(path: string, options: { schema: string }): Promi
   }
 
   const result: ValidationResult = {
-    schemaValidCount: 0,
-    schemaErrorCount: 0,
-    schemaErrors: [],
+    validCount: 0,
+    nodeErrorCount: 0,
+    nodeErrors: [],
     refErrors: [],
+    configErrors: [],
     ruleViolations: [],
     hierarchyViolations: [],
     skipped,
@@ -47,10 +49,10 @@ export async function validate(path: string, options: { schema: string }): Promi
     const valid = validateFunc(node.schemaData);
 
     if (valid) {
-      result.schemaValidCount++;
+      result.validCount++;
     } else {
-      result.schemaErrorCount++;
-      result.schemaErrors.push({
+      result.nodeErrorCount++;
+      result.nodeErrors.push({
         file: node.label,
         errors: validateFunc.errors || [],
       });
@@ -88,6 +90,13 @@ export async function validate(path: string, options: { schema: string }): Promi
 
   // Load and execute hierarchy validation if schema defines hierarchy
   const metadata = loadMetadata(options.schema);
+
+  // Validate schema metadata configuration
+  const badSelfRefTypes = (metadata.allowSelfRef ?? []).filter((t) => !metadata.hierarchy.includes(t));
+  for (const t of badSelfRefTypes) {
+    result.configErrors.push(`allowSelfRef contains "${t}" which is not in the hierarchy`);
+  }
+
   result.hierarchyViolations = validateHierarchy(nodes, metadata);
 
   // Load and execute rules validation if schema defines rules
@@ -98,11 +107,12 @@ export async function validate(path: string, options: { schema: string }): Promi
   // Report
   console.log(`\n🔍 Space Validation Results`);
   console.log(`━`.repeat(50));
-  console.log(`✅ Valid: ${result.schemaValidCount}`);
-  console.log(`❌ Schema Errors: ${result.schemaErrorCount}`);
+  console.log(`✅ Valid: ${result.validCount}`);
+  console.log(`❌ Node Errors: ${result.nodeErrorCount}`);
   console.log(`🔗 Reference Errors: ${result.refErrors.length}`);
+  console.log(`⚙️ Config Errors: ${result.configErrors.length}`);
   console.log(`📋 Rule Violations: ${result.ruleViolations.length}`);
-  console.log(`🏗️  Hierarchy Violations: ${result.hierarchyViolations.length}`);
+  console.log(`🏗️ Hierarchy Violations: ${result.hierarchyViolations.length}`);
   console.log(`⏭ Skipped (no frontmatter): ${result.skipped.length}`);
   console.log(`📄 Non-space (no type field): ${result.nonSpace.length}`);
 
@@ -116,9 +126,9 @@ export async function validate(path: string, options: { schema: string }): Promi
     for (const f of result.nonSpace) console.log(`   ${f}`);
   }
 
-  if (result.schemaErrors.length > 0) {
-    console.log(`\n❌ Schema validation errors:`);
-    result.schemaErrors.forEach(({ file, errors }) => {
+  if (result.nodeErrors.length > 0) {
+    console.log(`\n❌ Node errors:`);
+    result.nodeErrors.forEach(({ file, errors }) => {
       console.log(`\n   ${file}:`);
       errors.forEach((err: ErrorObject) => {
         console.log(`      ${err.instancePath || 'root'}: ${err.message}`);
@@ -131,6 +141,13 @@ export async function validate(path: string, options: { schema: string }): Promi
     result.refErrors.forEach(({ file, parent, error }) => {
       console.log(`   ${file}: parent ${parent} → ${error}`);
     });
+  }
+
+  if (result.configErrors.length > 0) {
+    console.log(`\n⚙️  Config errors:`);
+    for (const e of result.configErrors) {
+      console.log(`   ${e}`);
+    }
   }
 
   if (result.ruleViolations.length > 0) {
@@ -164,8 +181,9 @@ export async function validate(path: string, options: { schema: string }): Promi
   console.log(`\n`);
 
   if (
-    result.schemaErrorCount > 0 ||
+    result.nodeErrorCount > 0 ||
     result.refErrors.length > 0 ||
+    result.configErrors.length > 0 ||
     result.ruleViolations.length > 0 ||
     result.hierarchyViolations.length > 0
   ) {
