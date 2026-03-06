@@ -12,7 +12,10 @@ interface DiagramNode {
   priority?: string;
 }
 
-export async function diagram(path: string, options: { schema: string; output?: string; templateDir?: string }): Promise<void> {
+export async function diagram(
+  path: string,
+  options: { schema: string; output?: string; templateDir?: string },
+): Promise<void> {
   const validateFunc = createValidator(options.schema);
 
   let spaceNodes: SpaceNode[];
@@ -22,7 +25,11 @@ export async function diagram(path: string, options: { schema: string; output?: 
   if (statSync(path).isFile()) {
     ({ nodes: spaceNodes } = readSpaceOnAPage(path, options.schema));
   } else {
-    ({ nodes: spaceNodes, skipped, nonSpace } = await readSpaceDirectory(path, {
+    ({
+      nodes: spaceNodes,
+      skipped,
+      nonSpace,
+    } = await readSpaceDirectory(path, {
       schemaPath: options.schema,
       templateDir: options.templateDir,
     }));

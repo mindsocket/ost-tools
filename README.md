@@ -87,15 +87,14 @@ Sync is one-way (OST → Miro) and scoped to a single frame. Only cards and conn
 ### Sync templates with schema
 
 ```bash
-ost-tools template-sync [template-dir] [--schema path/to/my-schema.json] [--dry-run]
+ost-tools template-sync [--space alias] [--schema path/to/my-schema.json] [--create-missing] [--dry-run]
 ```
 
 Keeps Obsidian template files in sync with schema examples:
-- Matches `OST - *.md` files in the template directory by `type` field
-- Rewrites frontmatter from the schema's `examples` entry for that type
-- Adds commented hints for optional fields not in the example
+- Matches markdown files in the template directory (defined in config) by `type` field
+- Rewrites frontmatter using description fields and property `examples`
+- `templatePrefix` in config (default blank) sets a naming convention for templates (`{templatePrefix}{type}.md`). This will be used to check existing filenames, and create new templates with `--create-missing`.
 - `--dry-run` previews changes without writing files
-- `template-dir` can be omitted if `templateDir` is set in the config
 
 ## Development
 

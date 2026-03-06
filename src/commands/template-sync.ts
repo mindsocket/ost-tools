@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-import { basename, dirname } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import type { AnySchemaObject, SchemaObject } from 'ajv';
 import { glob } from 'glob';
 import matter from 'gray-matter';
@@ -24,10 +24,11 @@ function mergeAllOfProperties(
   registry: Map<string, AnySchemaObject>,
 ): Record<string, AnySchemaObject> {
   const merged: Record<string, AnySchemaObject> = {};
-  const { allOf, properties: variantProps } = variant as {
-    allOf?: AnySchemaObject[];
-    properties?: Record<string, AnySchemaObject>;
-  };
+  const { allOf, properties: variantProps } =
+    (variant as {
+      allOf?: AnySchemaObject[];
+      properties?: Record<string, AnySchemaObject>;
+    }) ?? {};
   for (const sub of allOf ?? []) {
     const resolved = resolveRef(sub, schema, registry);
     const { properties } = (resolved as { properties?: Record<string, AnySchemaObject> }) ?? {};
@@ -113,23 +114,65 @@ function getTypeVariants(schema: SchemaObject, registry: Map<string, AnySchemaOb
   return map;
 }
 
-export async function templateSync(templateDir: string, options: { schema: string; dryRun?: boolean }) {
+function generateNewContent(
+  nodeType: string,
+  variant: TypeVariant,
+  schema: SchemaObject,
+  registry: Map<string, AnySchemaObject>,
+  body = '\nTODO\n',
+): string {
+  const { example, optional, properties, description } = variant;
+  const exampleKeys = new Set(Object.keys(example));
+
+  const exampleWithPlaceholders = withEnumPlaceholders(example, properties, schema, registry);
+  let frontmatterYaml = (yaml.dump(exampleWithPlaceholders, { lineWidth: -1 }) as string).trim();
+
+  // Append property descriptions as comments
+  const lines = frontmatterYaml.split('\n');
+  const commentedLines = lines.map((line) => {
+    const match = line.match(/^([^:]+):/);
+    if (match) {
+      const key = match[1]!.trim();
+      const propDef = resolveRef(properties[key], schema, registry);
+      const propDescription = (propDef as { description?: string })?.description;
+      if (propDescription) {
+        return `${line}  # ${propDescription}`;
+      }
+    }
+    return line;
+  });
+
+  frontmatterYaml = `# Template for a \`${nodeType}\`${schema.title ? ` from schema: ${schema.title}` : ''}\n${
+    description ? `# ${description}\n` : ''
+  }${commentedLines.join('\n')}`;
+
+  const hints = optional
+    .filter((field) => !exampleKeys.has(field))
+    .map((field) => commentedHint(field, properties[field], schema, registry));
+
+  const newFrontmatter = hints.length > 0 ? `${frontmatterYaml}\n${hints.join('\n')}` : frontmatterYaml;
+
+  return `---\n${newFrontmatter}\n---${body}`;
+}
+
+export async function templateSync(
+  templateDir: string,
+  options: { schema: string; templatePrefix: string; dryRun?: boolean; createMissing?: boolean },
+) {
   const schema = loadSchema(options.schema);
+  const templatePrefix = options.templatePrefix;
 
   // Build schema registry for cross-file $ref resolution
   const schemaDir = dirname(options.schema);
   const registry = buildSchemaRegistry(schemaDir, basename(options.schema));
 
   const typeVariants = getTypeVariants(schema, registry);
+  const matchedTypes = new Set<string>();
 
   const files = await glob('*.md', { cwd: templateDir, absolute: true });
-  if (files.length === 0) {
-    console.log(`No template files found in ${templateDir}`);
-    return;
-  }
-
   const dryRun = options.dryRun ?? false;
   let filesModified = 0;
+  let filesCreated = 0;
 
   console.log(`\n🔄 Template Sync`);
   console.log('━'.repeat(50));
@@ -141,7 +184,6 @@ export async function templateSync(templateDir: string, options: { schema: strin
 
     const fmMatch = content.match(/^---\n[\s\S]*?\n---/);
     if (!fmMatch) {
-      console.log(`⚠  ${filename}: no frontmatter, skipping`);
       continue;
     }
     const body = content.slice(fmMatch[0].length);
@@ -149,46 +191,23 @@ export async function templateSync(templateDir: string, options: { schema: strin
     const parsed = matter(content);
     const nodeType = parsed.data.type as string | undefined;
     if (!nodeType) {
-      console.log(`⚠  ${filename}: no type field, skipping`);
       continue;
     }
 
     const variant = typeVariants.get(nodeType);
     if (!variant) {
-      console.log(`⚠  ${filename}: no schema example for type "${nodeType}", skipping`);
       continue;
     }
 
-    const { example, optional, properties, description } = variant;
-    const exampleKeys = new Set(Object.keys(example));
+    matchedTypes.add(nodeType);
 
-    const exampleWithPlaceholders = withEnumPlaceholders(example, properties, schema, registry);
-    let frontmatterYaml = (yaml.dump(exampleWithPlaceholders, { lineWidth: -1 }) as string).trim();
+    // Warning if filename doesn't match convention
+    const expectedFilename = `${templatePrefix}${nodeType}.md`;
+    if (filename !== expectedFilename) {
+      console.log(`⚠  ${filename}: type "${nodeType}" should be named "${expectedFilename}"`);
+    }
 
-    // Append property descriptions as comments
-    const lines = frontmatterYaml.split('\n');
-    const commentedLines = lines.map((line) => {
-      const match = line.match(/^([^:]+):/);
-      if (match) {
-        const key = match[1].trim();
-        const propDef = resolveRef(properties[key], schema, registry);
-        const propDescription = (propDef as { description?: string })?.description;
-        if (propDescription) {
-          return `${line}  # ${propDescription}`;
-        }
-      }
-      return line;
-    });
-
-    frontmatterYaml = `# Template for a \`${nodeType}\` from schema: ${schema.title}\n${description ? `# ${description}\n` : ''}${commentedLines.join('\n')}`;
-
-    const hints = optional
-      .filter((field) => !exampleKeys.has(field))
-      .map((field) => commentedHint(field, properties[field], schema, registry));
-
-    const newFrontmatter = hints.length > 0 ? `${frontmatterYaml}\n${hints.join('\n')}` : frontmatterYaml;
-
-    const newContent = `---\n${newFrontmatter}\n---${body}`;
+    const newContent = generateNewContent(nodeType, variant, schema, registry, body);
 
     if (newContent === content) {
       console.log(`✓  ${filename}`);
@@ -199,20 +218,23 @@ export async function templateSync(templateDir: string, options: { schema: strin
         const oldLines = content.split('\n');
         const newLines = newContent.split('\n');
         const maxLines = Math.max(oldLines.length, newLines.length);
+        let inFrontmatter = true;
         for (let i = 0; i < maxLines; i++) {
-          const isFmEnd = oldLines[i] === '---' && i > 0;
+          const isFmEnd = inFrontmatter && oldLines[i] === '---' && i > 0;
+          if (isFmEnd) inFrontmatter = false;
+
           if (oldLines[i] !== newLines[i]) {
             if (i < oldLines.length) console.log(`\x1b[31m- ${oldLines[i] || ''}\x1b[0m`);
             if (i < newLines.length) console.log(`\x1b[32m+ ${newLines[i] || ''}\x1b[0m`);
           } else if (i < 15) {
-             // Show some context but not too much
-             console.log(`  ${oldLines[i]}`);
+            // Show some context but not too much
+            console.log(`  ${oldLines[i]}`);
           }
+
           if (isFmEnd) {
-            if (i + 1 < maxLines && oldLines[i+1] !== newLines[i+1]) {
-               // continue if next line is different
-            } else {
-               break;
+            // After frontmatter ends, only continue if next line differs
+            if (i + 1 >= maxLines || oldLines[i + 1] === newLines[i + 1]) {
+              break;
             }
           }
         }
@@ -225,10 +247,32 @@ export async function templateSync(templateDir: string, options: { schema: strin
     }
   }
 
+  // Handle missing types
+  const missingTypes = Array.from(typeVariants.keys()).filter((t) => !matchedTypes.has(t));
+  if (missingTypes.length > 0) {
+    console.log(`\nMissing templates for: ${missingTypes.join(', ')}`);
+    if (options.createMissing) {
+      for (const type of missingTypes) {
+        const variant = typeVariants.get(type)!;
+        const newContent = generateNewContent(type, variant, schema, registry);
+        const newFilename = `${templatePrefix}${type}.md`;
+        const newFilePath = join(templateDir, newFilename);
+
+        console.log(`✨ ${newFilename}: creating`);
+        if (!dryRun) {
+          writeFileSync(newFilePath, newContent);
+          filesCreated++;
+        }
+      }
+    } else {
+      console.log('(use --create-missing to scaffold them)');
+    }
+  }
+
   console.log(`\n${'━'.repeat(50)}`);
   if (dryRun) {
-    console.log('No files modified (dry run)\n');
+    console.log('No files modified or created (dry run)\n');
   } else {
-    console.log(`${filesModified} file(s) updated\n`);
+    console.log(`${filesModified} file(s) updated, ${filesCreated} file(s) created\n`);
   }
 }

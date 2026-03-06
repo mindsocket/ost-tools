@@ -17,6 +17,7 @@ const CONFIG_SCHEMA = {
           path: { type: 'string' },
           schema: { type: 'string' },
           templateDir: { type: 'string' },
+          templatePrefix: { type: 'string' },
           miroBoardId: { type: 'string' },
           miroFrameId: { type: 'string' },
         },
@@ -26,6 +27,7 @@ const CONFIG_SCHEMA = {
     },
     schema: { type: 'string' },
     templateDir: { type: 'string' },
+    templatePrefix: { type: 'string' },
   },
   required: ['spaces'],
   additionalProperties: false,
@@ -36,6 +38,7 @@ export interface SpaceConfig {
   path: string;
   schema?: string;
   templateDir?: string;
+  templatePrefix?: string;
   miroBoardId?: string;
   miroFrameId?: string;
 }
@@ -44,6 +47,7 @@ export interface Config {
   spaces: SpaceConfig[];
   schema?: string;
   templateDir?: string;
+  templatePrefix?: string;
 }
 
 const packageDir = dirname(fileURLToPath(import.meta.url));
@@ -102,14 +106,20 @@ export function resolveSchema(cliArg: string | undefined, config: Config, space?
   return cliArg ?? space?.schema ?? config.schema ?? join(packageDir, '..', 'schemas', 'general.json');
 }
 
-/** Resolve template dir: CLI arg > space-level config > global config > error. */
-export function resolveTemplateDir(cliArg: string | undefined, config: Config, space?: SpaceConfig): string {
-  const dir = cliArg ?? space?.templateDir ?? config.templateDir;
-  if (!dir) {
-    console.error('Error: template-dir is required (specify as argument or set templateDir in config.json)');
+export interface TemplateSettings {
+  templateDir: string;
+  templatePrefix: string;
+}
+
+/** Resolve template settings: space-level config > global config. */
+export function resolveTemplateSettings(config: Config, space?: SpaceConfig): TemplateSettings {
+  const templateDir = space?.templateDir ?? config.templateDir;
+  if (!templateDir) {
+    console.error('Error: templateDir is required in config.json (global or per-space)');
     process.exit(1);
   }
-  return dir;
+  const templatePrefix = space?.templatePrefix ?? config.templatePrefix ?? '';
+  return { templateDir, templatePrefix };
 }
 
 /** Update a field on a space entry and persist config.json. */

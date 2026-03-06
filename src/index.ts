@@ -5,7 +5,7 @@ import { dump } from './commands/dump';
 import { show } from './commands/show';
 import { templateSync } from './commands/template-sync';
 import { validate } from './commands/validate';
-import { loadConfig, resolveSchema, resolveSpacePath, resolveTemplateDir } from './config';
+import { loadConfig, resolveSchema, resolveSpacePath, resolveTemplateSettings } from './config';
 import { miroSync } from './miro/sync';
 
 const program = new Command();
@@ -70,20 +70,22 @@ program
 program
   .command('template-sync')
   .description('Sync template frontmatter with schema examples')
-  .argument('[template-dir]', 'Directory containing template markdown files')
   .option('-s, --schema <path>', 'Path to JSON schema file')
   .option('--space <alias>', 'Space alias to use for template-dir and schema')
+  .option('--create-missing', 'Create missing template files for schema types')
   .option('--dry-run', 'Preview changes without writing files')
-  .action((templateDir, options) => {
+  .action((options) => {
     const config = loadConfig();
     const space = options.space ? config.spaces.find((s) => s.alias === options.space) : undefined;
     if (options.space && !space) {
       console.error(`Error: Unknown space "${options.space}"`);
       process.exit(1);
     }
-    templateSync(resolveTemplateDir(templateDir, config, space), {
+    const { templateDir, templatePrefix } = resolveTemplateSettings(config, space);
+    templateSync(templateDir, {
       ...options,
       schema: resolveSchema(options.schema, config, space),
+      templatePrefix,
     });
   });
 

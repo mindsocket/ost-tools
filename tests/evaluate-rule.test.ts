@@ -100,9 +100,17 @@ describe('evaluate-rule', () => {
     });
 
     it('returns false on expression evaluation error', async () => {
-      const context = buildEvalContext(mockNode, allNodes, mockNodeIndex);
-      const result = await evaluateExpression('invalid.syntax.('!, context);
-      expect(result).toBe(false);
+      // Suppress expected warning for invalid syntax
+      const originalWarn = console.warn;
+      console.warn = () => {};
+
+      try {
+        const context = buildEvalContext(mockNode, allNodes, mockNodeIndex);
+        const result = await evaluateExpression('invalid.syntax.('!, context);
+        expect(result).toBe(false);
+      } finally {
+        console.warn = originalWarn;
+      }
     });
   });
 
