@@ -3,7 +3,7 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { AnySchemaObject, SchemaObject } from 'ajv';
 import Ajv, { type ValidateFunction } from 'ajv';
-import { parse } from 'jsonc-parser';
+import JSON5 from 'json5';
 import type { RulesMetadata, SchemaMetadata } from './types';
 
 const packageDir = dirname(fileURLToPath(import.meta.url));
@@ -23,7 +23,7 @@ export function buildSchemaRegistry(dir: string, targetFile?: string): Map<strin
     const isTarget = targetFile !== undefined && file === targetFile;
     if (!isPartial && !isTarget) continue;
 
-    const schema = parse(readFileSync(join(dir, file), 'utf-8')) as JsonSchemaObject;
+    const schema = JSON5.parse(readFileSync(join(dir, file), 'utf-8')) as JsonSchemaObject;
     if (typeof schema.$id === 'string') registry.set(schema.$id, schema);
   }
   return registry;
@@ -38,7 +38,7 @@ export function buildSchemaRegistry(dir: string, targetFile?: string): Map<strin
  */
 export function loadSchema(schemaPath: string): JsonSchemaObject {
   const absPath = resolve(schemaPath);
-  const schema = parse(readFileSync(absPath, 'utf-8')) as JsonSchemaObject;
+  const schema = JSON5.parse(readFileSync(absPath, 'utf-8')) as JsonSchemaObject;
   const registry = buildSchemaRegistry(dirname(absPath), basename(absPath));
 
   // Collect $defs from any externally-referenced schemas
@@ -74,7 +74,7 @@ export function loadSchema(schemaPath: string): JsonSchemaObject {
  */
 export function createValidator(schemaPath: string): ValidateFunction {
   const absPath = resolve(schemaPath);
-  const targetSchema = parse(readFileSync(absPath, 'utf-8')) as JsonSchemaObject;
+  const targetSchema = JSON5.parse(readFileSync(absPath, 'utf-8')) as JsonSchemaObject;
   const targetFile = basename(absPath);
   const targetDir = dirname(absPath);
   const ajv = new Ajv();

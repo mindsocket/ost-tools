@@ -4,8 +4,16 @@ Tools for working with Opportunity Solution Tree structures and other product ma
 
 ## Installation
 
+Requires [Bun](https://bun.sh) runtime.
+
 ```bash
-npm install -g ost-tools
+bun install -g ost-tools
+```
+
+Or use directly via `bunx`:
+
+```bash
+bunx ost-tools validate <path>
 ```
 
 ## Concepts

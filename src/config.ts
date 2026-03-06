@@ -3,7 +3,7 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Ajv from 'ajv';
-import { parse } from 'jsonc-parser';
+import JSON5 from 'json5';
 
 const CONFIG_SCHEMA = {
   type: 'object',
@@ -74,7 +74,7 @@ export function loadConfig(): Config {
     return { spaces: [] };
   }
 
-  const config = parse(readFileSync(path, 'utf-8'));
+  const config = JSON5.parse(readFileSync(path, 'utf-8'));
   const ajv = new Ajv();
   const validate = ajv.compile(CONFIG_SCHEMA);
 

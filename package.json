@@ -2,18 +2,19 @@
   "name": "ost-tools",
   "version": "0.2.0",
   "description": "Tools for working with Opportunity Solution Tree structures and other product management and strategy frameworks",
-  "module": "src/index.ts",
+  "module": "./dist/index.js",
   "type": "module",
   "license": "MIT",
   "bin": {
-    "ost-tools": "dist/index.js"
+    "ost-tools": "./dist/index.js"
   },
   "files": [
     "dist/",
     "schemas/"
   ],
   "scripts": {
-    "build": "bun build src/index.ts --outfile dist/index.js --target=node && sed -i '' '1s|^#!.*$|#!/usr/bin/env node|' dist/index.js && chmod +x dist/index.js",
+    "clean": "rm -rf dist",
+    "build": "bun run clean && tsc && cp -r schemas dist/ && chmod +x dist/index.js",
     "prepublishOnly": "bun run build",
     "validate": "bun run src/index.ts validate",
     "diagram": "bun run src/index.ts diagram",
@@ -38,8 +39,8 @@
     "glob": "^13.0.6",
     "gray-matter": "^4.0.3",
     "js-yaml": "^4.1.1",
+    "json5": "^2.2.3",
     "jsonata": "^2.1.0",
-    "jsonc-parser": "^3.3.1",
     "mdast-util-to-string": "^4.0.0",
     "remark-gfm": "^4.0.1",
     "remark-parse": "^11.0.0",
