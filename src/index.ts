@@ -5,7 +5,7 @@ import { dump } from './commands/dump';
 import { show } from './commands/show';
 import { templateSync } from './commands/template-sync';
 import { validate } from './commands/validate';
-import { loadConfig, resolveSchema, resolveSpacePath, resolveTemplateSettings } from './config';
+import { loadConfig, resolveSchema, resolveSpacePath, resolveTemplateSettings, setConfigPath } from './config';
 import { miroSync } from './miro/sync';
 
 const program = new Command();
@@ -13,7 +13,12 @@ const program = new Command();
 program
   .name('ost-tools')
   .description('Opportunity Solution Tree validation and diagram generation tool')
-  .version('0.1.0');
+  .version('0.1.0')
+  .option('--config <path>', 'Path to config file (overrides default config.json locations)');
+
+program.hook('preAction', () => {
+  setConfigPath(program.opts().config);
+});
 
 program
   .command('validate')

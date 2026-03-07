@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Ajv from 'ajv';
 import JSON5 from 'json5';
@@ -52,7 +52,17 @@ export interface Config {
 
 const packageDir = dirname(fileURLToPath(import.meta.url));
 
+let _configPathOverride: string | undefined;
+
+/** Override the config file path used by loadConfig/updateSpaceField. */
+export function setConfigPath(path: string | undefined): void {
+  _configPathOverride = path;
+}
+
 function configPath(): string {
+  if (_configPathOverride) {
+    return _configPathOverride;
+  }
   if (process.env.OST_TOOLS_CONFIG) {
     return process.env.OST_TOOLS_CONFIG;
   }
@@ -66,6 +76,24 @@ function configPath(): string {
     return cwdPath;
   }
   return xdgPath;
+}
+
+function resolveRelativePaths(config: Config, configDir: string): Config {
+  const rel = (p: string | undefined): string | undefined => {
+    if (!p || isAbsolute(p)) return p;
+    return resolve(configDir, p);
+  };
+  return {
+    ...config,
+    schema: rel(config.schema),
+    templateDir: rel(config.templateDir),
+    spaces: config.spaces.map((s) => ({
+      ...s,
+      path: rel(s.path)!,
+      schema: rel(s.schema),
+      templateDir: rel(s.templateDir),
+    })),
+  };
 }
 
 export function loadConfig(): Config {
@@ -83,7 +111,7 @@ export function loadConfig(): Config {
     process.exit(1);
   }
 
-  return config as unknown as Config;
+  return resolveRelativePaths(config as unknown as Config, dirname(resolve(path)));
 }
 
 /** Resolve alias-or-path to a filesystem path. Falls through if not an alias. */
@@ -124,9 +152,15 @@ export function resolveTemplateSettings(config: Config, space?: SpaceConfig): Te
 
 /** Update a field on a space entry and persist config.json. */
 export function updateSpaceField(alias: string, field: keyof SpaceConfig, value: string): void {
-  const config = loadConfig();
-  const space = getSpaceConfig(alias, config);
-  space[field] = value;
   const path = configPath();
-  writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`);
+  if (!existsSync(path)) {
+    throw new Error(`Config file not found: ${path}`);
+  }
+  const raw = JSON5.parse(readFileSync(path, 'utf-8'));
+  const space = raw.spaces?.find((s: SpaceConfig) => s.alias === alias);
+  if (!space) {
+    throw new Error(`Unknown space config: "${alias}". Check config.json.`);
+  }
+  space[field] = value;
+  writeFileSync(path, `${JSON.stringify(raw, null, 2)}\n`);
 }
