@@ -1,10 +1,11 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-import { basename, dirname, join } from 'node:path';
+import { join } from 'node:path';
 import type { AnySchemaObject, SchemaObject } from 'ajv';
 import { glob } from 'glob';
 import matter from 'gray-matter';
 import yaml from 'js-yaml';
-import { buildSchemaRegistry, loadSchema, resolveRef } from '../schema';
+import { invertFieldMap } from '../config';
+import { buildFullRegistry, mergeVariantProperties, readRawSchema, resolveRef } from '../schema';
 
 interface TypeVariant {
   required: string[];
@@ -16,27 +17,6 @@ interface TypeVariant {
 
 // Fields derived from the filesystem — present at validation time but not written to frontmatter
 const DERIVED_FIELDS = new Set(['title', 'content']);
-
-// Merge properties from allOf sub-schemas into a single properties map
-function mergeAllOfProperties(
-  variant: AnySchemaObject,
-  schema: SchemaObject,
-  registry: Map<string, AnySchemaObject>,
-): Record<string, AnySchemaObject> {
-  const merged: Record<string, AnySchemaObject> = {};
-  const { allOf, properties: variantProps } =
-    (variant as {
-      allOf?: AnySchemaObject[];
-      properties?: Record<string, AnySchemaObject>;
-    }) ?? {};
-  for (const sub of allOf ?? []) {
-    const resolved = resolveRef(sub, schema, registry);
-    const { properties } = (resolved as { properties?: Record<string, AnySchemaObject> }) ?? {};
-    Object.assign(merged, properties ?? {});
-  }
-  Object.assign(merged, variantProps ?? {});
-  return merged;
-}
 
 function enumPlaceholder(def: AnySchemaObject): string {
   return (def as { enum?: string[] }).enum?.join('|') ?? '';
@@ -95,7 +75,7 @@ function getTypeVariants(schema: SchemaObject, registry: Map<string, AnySchemaOb
 
     const required = (variant.required as string[]).filter((k: string) => k !== 'type' && !DERIVED_FIELDS.has(k));
     const allProperties = Object.fromEntries(
-      Object.entries(mergeAllOfProperties(variant, schema, registry)).filter(
+      Object.entries(mergeVariantProperties(variant, schema, registry).properties).filter(
         ([k]) => k !== 'type' && !DERIVED_FIELDS.has(k),
       ),
     );
@@ -120,20 +100,30 @@ function generateNewContent(
   schema: SchemaObject,
   registry: Map<string, AnySchemaObject>,
   body = '\nTODO\n',
+  fieldMap: Record<string, string> = {},
 ): string {
   const { example, optional, properties, description } = variant;
   const exampleKeys = new Set(Object.keys(example));
 
+  // fieldMap is file→canonical; invert once to get canonical→file for template output
+  const canonicalToFile = invertFieldMap(fieldMap);
+  const toFileKey = (k: string) => canonicalToFile[k] ?? k;
+  const toCanonicalKey = (k: string) => fieldMap[k] ?? k;
   const exampleWithPlaceholders = withEnumPlaceholders(example, properties, schema, registry);
-  let frontmatterYaml = (yaml.dump(exampleWithPlaceholders, { lineWidth: -1 }) as string).trim();
+  const remappedExample = Object.fromEntries(
+    Object.entries(exampleWithPlaceholders).map(([k, v]) => [toFileKey(k), v]),
+  );
+  let frontmatterYaml = (yaml.dump(remappedExample, { lineWidth: -1 }) as string).trim();
 
   // Append property descriptions as comments
+  // YAML lines use file field names; look up properties using canonical key.
   const lines = frontmatterYaml.split('\n');
   const commentedLines = lines.map((line) => {
     const match = line.match(/^([^:]+):/);
     if (match) {
-      const key = match[1]!.trim();
-      const propDef = resolveRef(properties[key], schema, registry);
+      const fileKey = match[1]!.trim();
+      const canonicalKey = toCanonicalKey(fileKey);
+      const propDef = resolveRef(properties[canonicalKey], schema, registry);
       const propDescription = (propDef as { description?: string })?.description;
       if (propDescription) {
         return `${line}  # ${propDescription}`;
@@ -148,7 +138,7 @@ function generateNewContent(
 
   const hints = optional
     .filter((field) => !exampleKeys.has(field))
-    .map((field) => commentedHint(field, properties[field], schema, registry));
+    .map((field) => commentedHint(toFileKey(field), properties[field], schema, registry));
 
   const newFrontmatter = hints.length > 0 ? `${frontmatterYaml}\n${hints.join('\n')}` : frontmatterYaml;
 
@@ -157,14 +147,20 @@ function generateNewContent(
 
 export async function templateSync(
   templateDir: string,
-  options: { schema: string; templatePrefix: string; dryRun?: boolean; createMissing?: boolean },
+  options: {
+    schema: string;
+    templatePrefix: string;
+    dryRun?: boolean;
+    createMissing?: boolean;
+    fieldMap?: Record<string, string>;
+  },
 ) {
-  const schema = loadSchema(options.schema);
+  const schema = readRawSchema(options.schema) as SchemaObject;
   const templatePrefix = options.templatePrefix;
+  const fieldMap = options.fieldMap ?? {};
 
   // Build schema registry for cross-file $ref resolution
-  const schemaDir = dirname(options.schema);
-  const registry = buildSchemaRegistry(schemaDir, basename(options.schema));
+  const registry = buildFullRegistry(options.schema);
 
   const typeVariants = getTypeVariants(schema, registry);
   const matchedTypes = new Set<string>();
@@ -207,7 +203,7 @@ export async function templateSync(
       console.log(`⚠  ${filename}: type "${nodeType}" should be named "${expectedFilename}"`);
     }
 
-    const newContent = generateNewContent(nodeType, variant, schema, registry, body);
+    const newContent = generateNewContent(nodeType, variant, schema, registry, body, fieldMap);
 
     if (newContent === content) {
       console.log(`✓  ${filename}`);
@@ -254,7 +250,7 @@ export async function templateSync(
     if (options.createMissing) {
       for (const type of missingTypes) {
         const variant = typeVariants.get(type)!;
-        const newContent = generateNewContent(type, variant, schema, registry);
+        const newContent = generateNewContent(type, variant, schema, registry, undefined, fieldMap);
         const newFilename = `${templatePrefix}${type}.md`;
         const newFilePath = join(templateDir, newFilename);
 

@@ -7,14 +7,19 @@ import JSON5 from 'json5';
 import type { RulesMetadata, SchemaMetadata } from './types';
 
 const packageDir = dirname(fileURLToPath(import.meta.url));
+export const bundledSchemasDir = join(packageDir, '..', 'schemas');
 /** Parsed JSON schema object — always a plain object (never a boolean schema). */
 type JsonSchemaObject = Record<string, unknown>;
+
+export function readRawSchema(schemaPath: string): JsonSchemaObject {
+  return JSON5.parse(readFileSync(resolve(schemaPath), 'utf-8')) as JsonSchemaObject;
+}
 
 /**
  * Build a registry of all schemas in the given directory, keyed by $id.
  * Only loads "partial" schemas (starting with _) and an optional target file.
  */
-export function buildSchemaRegistry(dir: string, targetFile?: string): Map<string, JsonSchemaObject> {
+function buildSchemaRegistry(dir: string, targetFile?: string): Map<string, JsonSchemaObject> {
   const registry = new Map<string, JsonSchemaObject>();
   if (!existsSync(dir)) return registry;
   for (const file of readdirSync(dir)) {
@@ -23,46 +28,44 @@ export function buildSchemaRegistry(dir: string, targetFile?: string): Map<strin
     const isTarget = targetFile !== undefined && file === targetFile;
     if (!isPartial && !isTarget) continue;
 
-    const schema = JSON5.parse(readFileSync(join(dir, file), 'utf-8')) as JsonSchemaObject;
+    const schema = readRawSchema(join(dir, file));
     if (typeof schema.$id === 'string') registry.set(schema.$id, schema);
   }
   return registry;
 }
 
 /**
- * Load a schema as a self-contained object for direct traversal (e.g. template-sync).
- * External $refs are resolved against peer schemas: their $defs
- * are merged in and the refs rewritten to internal #/$defs/... form.
- * Note: only one level of ref resolution is performed here currently.
+ * Build the full two-layer registry for a schema path:
+ * - Layer 1: bundled schemas/ dir (partials only, as fallback)
+ * - Layer 2: schema's own dir (partials + target file) — overrides layer 1
+ * Does not throw on $id collision; layer 2 silently wins.
  */
-export function loadSchema(schemaPath: string): JsonSchemaObject {
+export function buildFullRegistry(schemaPath: string): Map<string, JsonSchemaObject> {
   const absPath = resolve(schemaPath);
-  const schema = JSON5.parse(readFileSync(absPath, 'utf-8')) as JsonSchemaObject;
-  const registry = buildSchemaRegistry(dirname(absPath), basename(absPath));
+  const targetFile = basename(absPath);
+  const targetDir = dirname(absPath);
 
-  // Collect $defs from any externally-referenced schemas
-  const mergedDefs: Record<string, unknown> = {};
-  JSON.stringify(schema, (key, value) => {
-    if (key === '$ref' && typeof value === 'string' && !value.startsWith('#')) {
-      const baseId = value.split('#')[0]!;
-      const dep = registry.get(baseId);
-      if (dep) Object.assign(mergedDefs, dep.$defs ?? {});
-    }
-    return value;
-  });
+  const registry = new Map<string, JsonSchemaObject>();
 
-  schema.$defs = { ...mergedDefs, ...(schema.$defs ?? {}) };
+  // Layer 1: bundled schemas/ dir (partials only)
+  for (const [id, schema] of buildSchemaRegistry(bundledSchemasDir)) {
+    registry.set(id, schema);
+  }
 
-  // Rewrite external $refs to internal #/$defs/... refs
-  return JSON.parse(
-    JSON.stringify(schema, (key, value) => {
-      if (key === '$ref' && typeof value === 'string' && !value.startsWith('#')) {
-        const hashIdx = value.indexOf('#');
-        return hashIdx !== -1 ? value.slice(hashIdx) : '#';
+  // Layer 2: schema's own dir (partials + target file)
+  if (targetDir !== bundledSchemasDir) {
+    const bundledIds = new Set(registry.keys());
+    for (const [id, schema] of buildSchemaRegistry(targetDir, targetFile)) {
+      if (bundledIds.has(id)) {
+        throw new Error(
+          `Schema collision: partial schema in ${targetDir} uses $id "${id}" which is reserved by a default schema. Please use a unique $id for local partials.`,
+        );
       }
-      return value;
-    }),
-  ) as JsonSchemaObject;
+      registry.set(id, schema);
+    }
+  }
+
+  return registry;
 }
 
 /**
@@ -72,33 +75,10 @@ export function loadSchema(schemaPath: string): JsonSchemaObject {
  * Also registers schemas from the default schemas/ directory as a fallback.
  */
 export function createValidator(schemaPath: string): ValidateFunction {
-  const absPath = resolve(schemaPath);
-  const targetSchema = JSON5.parse(readFileSync(absPath, 'utf-8')) as JsonSchemaObject;
-  const targetFile = basename(absPath);
-  const targetDir = dirname(absPath);
+  const targetSchema = readRawSchema(schemaPath);
   const ajv = new Ajv();
 
-  const registry = new Map<string, JsonSchemaObject>();
-
-  // 1. Register schemas from the default schemas/ directory (fallback)
-  const defaultSchemasDir = join(packageDir, '..', 'schemas');
-  if (existsSync(defaultSchemasDir)) {
-    for (const [id, schema] of buildSchemaRegistry(defaultSchemasDir)) {
-      registry.set(id, schema);
-    }
-  }
-
-  // 2. Register peer schemas from the target schema's directory (priority)
-  if (targetDir !== defaultSchemasDir) {
-    for (const [id, schema] of buildSchemaRegistry(targetDir, targetFile)) {
-      if (registry.has(id)) {
-        throw new Error(
-          `Schema collision: partial schema in ${targetDir} uses $id "${id}" which is reserved by a default schema. Please use a unique $id for local partials.`,
-        );
-      }
-      registry.set(id, schema);
-    }
-  }
+  const registry = buildFullRegistry(schemaPath);
 
   // Register all except target schema (AJV compiles targetSchema explicitly)
   for (const [id, schema] of registry) {
@@ -131,7 +111,7 @@ export function resolveRef(
 
       // Resolve the hash path in the external schema
       if (hashPath) {
-        const path = hashPath.replace(/^#\//, '').split('/');
+        const path = hashPath.replace(/^\//, '').split('/');
         // biome-ignore lint/suspicious/noExplicitAny: JSON schema traversal
         return path.reduce((obj: any, key: string) => obj[key], externalSchema);
       }
@@ -146,13 +126,48 @@ export function resolveRef(
   return propDef;
 }
 
+/**
+ * Merge properties and required fields from allOf refs and direct variant properties.
+ * allOf entries are resolved via resolveRef; direct properties take precedence.
+ */
+export function mergeVariantProperties(
+  variant: AnySchemaObject,
+  schema: SchemaObject,
+  registry: Map<string, AnySchemaObject>,
+): { properties: Record<string, AnySchemaObject>; required: string[] } {
+  const properties: Record<string, AnySchemaObject> = {};
+  const required: string[] = [];
+
+  for (const sub of (variant.allOf as AnySchemaObject[] | undefined) ?? []) {
+    const resolved = resolveRef(sub, schema, registry);
+    Object.assign(properties, resolved?.properties ?? {});
+    required.push(...((resolved?.required ?? []) as string[]));
+  }
+
+  Object.assign(properties, variant.properties ?? {});
+  required.push(...((variant.required ?? []) as string[]));
+
+  return { properties, required: [...new Set(required)] };
+}
+
 export function resolveNodeType(type: string, aliases: Record<string, string> | undefined): string {
   return aliases?.[type] ?? type;
 }
 
 export function loadMetadata(schemaPath: string): SchemaMetadata {
-  const schema = loadSchema(schemaPath);
-  const metadata = (schema.$defs as Record<string, unknown>)?._metadata as Record<string, unknown> | undefined;
+  const schema = readRawSchema(schemaPath);
+  let metadata = (schema.$defs as Record<string, unknown>)?._metadata as Record<string, unknown> | undefined;
+
+  // _metadata may live in a partial schema rather than the target
+  if (!metadata) {
+    for (const s of buildFullRegistry(schemaPath).values()) {
+      const m = (s.$defs as Record<string, unknown> | undefined)?._metadata;
+      if (m) {
+        metadata = m as Record<string, unknown>;
+        break;
+      }
+    }
+  }
 
   const hierarchy = (metadata?.hierarchy as string[]) ?? undefined;
   if (!hierarchy || hierarchy.length === 0) {

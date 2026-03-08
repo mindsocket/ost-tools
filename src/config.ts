@@ -1,9 +1,9 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import Ajv from 'ajv';
 import JSON5 from 'json5';
+import { bundledSchemasDir } from './schema';
 
 const CONFIG_SCHEMA = {
   type: 'object',
@@ -20,6 +20,7 @@ const CONFIG_SCHEMA = {
           templatePrefix: { type: 'string' },
           miroBoardId: { type: 'string' },
           miroFrameId: { type: 'string' },
+          fieldMap: { type: 'object', additionalProperties: { type: 'string' } },
         },
         required: ['alias', 'path'],
         additionalProperties: false,
@@ -41,6 +42,12 @@ export interface SpaceConfig {
   templatePrefix?: string;
   miroBoardId?: string;
   miroFrameId?: string;
+  /**
+   * Maps file/frontmatter field names to canonical field names expected by the schema.
+   * Applied on read (frontmatter → schemaData) and reversed on write (template-sync).
+   * Example: { "record_type": "type" } renames `record_type` in files to `type` internally.
+   */
+  fieldMap?: Record<string, string>;
 }
 
 export interface Config {
@@ -50,8 +57,6 @@ export interface Config {
   templatePrefix?: string;
 }
 
-const packageDir = dirname(fileURLToPath(import.meta.url));
-
 let _configPathOverride: string | undefined;
 
 /** Override the config file path used by loadConfig/updateSpaceField. */
@@ -59,7 +64,7 @@ export function setConfigPath(path: string | undefined): void {
   _configPathOverride = path;
 }
 
-function configPath(): string {
+export function configPath(): string {
   if (_configPathOverride) {
     return _configPathOverride;
   }
@@ -136,7 +141,7 @@ export function getSpaceConfig(alias: string, config: Config): SpaceConfig {
 
 /** Resolve schema path: CLI arg > space-level config > global config > hardcoded default. */
 export function resolveSchema(cliArg: string | undefined, config: Config, space?: SpaceConfig): string {
-  return cliArg ?? space?.schema ?? config.schema ?? join(packageDir, '..', 'schemas', 'general.json');
+  return cliArg ?? space?.schema ?? config.schema ?? join(bundledSchemasDir, 'general.json');
 }
 
 export interface TemplateSettings {
@@ -155,14 +160,41 @@ export function resolveTemplateSettings(config: Config, space?: SpaceConfig): Te
   return { templateDir, templatePrefix };
 }
 
-/** Update a field on a space entry and persist config.json. */
-export function updateSpaceField(alias: string, field: keyof SpaceConfig, value: string): void {
+/**
+ * Apply field remapping to a data object.
+ * Renames keys according to fieldMap (file field name → canonical field name).
+ * Fields not in the map are passed through unchanged.
+ */
+export function applyFieldMap(
+  data: Record<string, unknown>,
+  fieldMap: Record<string, string> | undefined,
+): Record<string, unknown> {
+  if (!fieldMap || Object.keys(fieldMap).length === 0) return data;
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data)) {
+    result[fieldMap[key] ?? key] = value;
+  }
+  return result;
+}
+
+/**
+ * Invert a fieldMap (file→canonical) to produce a reverse map (canonical→file).
+ * Used for write operations (e.g. template-sync) to translate back to file field names.
+ */
+export function invertFieldMap(fieldMap: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(Object.entries(fieldMap).map(([src, canonical]) => [canonical, src]));
+}
+
+type StringFields<T> = { [K in keyof T]: T[K] extends string | undefined ? K : never }[keyof T];
+
+/** Update a string field on a space entry and persist config.json. */
+export function updateSpaceField(alias: string, field: StringFields<SpaceConfig>, value: string): void {
   const path = configPath();
   const config = _loadConfig(path);
   const space = config.spaces?.find((s: SpaceConfig) => s.alias === alias);
   if (!space) {
     throw new Error(`Unknown space config: "${alias}". Check config.json.`);
   }
-  space[field] = value;
+  (space as unknown as Record<string, unknown>)[field as string] = value;
   writeFileSync(path, `${JSON5.stringify(config, null, 2)}\n`);
 }

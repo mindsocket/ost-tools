@@ -2,10 +2,10 @@ import { beforeAll, describe, expect, it } from 'bun:test';
 import { join } from 'node:path';
 import { readSpaceDirectory } from '../src/read-space-directory';
 import { readSpaceOnAPage } from '../src/read-space-on-a-page';
-import { createValidator } from '../src/schema';
+import { bundledSchemasDir, createValidator } from '../src/schema';
 import type { SpaceNode } from '../src/types';
 
-const STRICT_SCHEMA_PATH = join(import.meta.dir, '../schemas/strict_ost.json');
+const STRICT_SCHEMA_PATH = join(bundledSchemasDir, 'strict_ost.json');
 const VALID_DIR = join(import.meta.dir, 'fixtures/strict_ost/valid-directory');
 const INVALID_DIR = join(import.meta.dir, 'fixtures/strict_ost/invalid');
 const VALID_ON_A_PAGE = join(import.meta.dir, 'fixtures/strict_ost/ost-on-a-page.md');

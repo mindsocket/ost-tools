@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { basename } from 'node:path';
+import { basename, resolve } from 'node:path';
 import matter from 'gray-matter';
 import { loadConfig, resolveSchema } from './config';
 import { extractEmbeddedNodes, ON_A_PAGE_TYPES } from './parse-embedded';
@@ -20,7 +20,8 @@ export function readSpaceOnAPage(filePath: string, schemaPath?: string): SpaceOn
   }
 
   const config = loadConfig();
-  const resolvedSchemaPath = resolveSchema(schemaPath, config);
+  const space = config.spaces.find((s) => resolve(s.path) === resolve(filePath));
+  const resolvedSchemaPath = resolveSchema(schemaPath, config, space);
   const { hierarchy, aliases } = loadMetadata(resolvedSchemaPath);
 
   const pageTitle = basename(filePath, '.md');

@@ -1,9 +1,13 @@
 #!/usr/bin/env bun
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { join } from 'node:path';
 import { Command } from 'commander';
 import { diagram } from './commands/diagram';
 import { dump } from './commands/dump';
+import { listSchemas, showSchema } from './commands/schemas';
 import { show } from './commands/show';
+import { listSpaces } from './commands/spaces';
 import { templateSync } from './commands/template-sync';
 import { validate } from './commands/validate';
 import { loadConfig, resolveSchema, resolveSpacePath, resolveTemplateSettings, setConfigPath } from './config';
@@ -95,7 +99,37 @@ program
       ...options,
       schema: resolveSchema(options.schema, config, space),
       templatePrefix,
+      fieldMap: space?.fieldMap,
     });
+  });
+
+const spacesCmd = new Command('spaces').description('List configured spaces');
+spacesCmd
+  .command('list', { isDefault: true })
+  .description('List all configured spaces and their paths')
+  .action(listSpaces);
+program.addCommand(spacesCmd);
+
+const schemasCmd = new Command('schemas').description('List and inspect schemas');
+schemasCmd
+  .command('list', { isDefault: true })
+  .description('List available schemas')
+  .action(() => listSchemas());
+schemasCmd
+  .command('show')
+  .description('Show schema structure (or raw JSON with --raw)')
+  .argument('[file]', 'Schema filename or path (omit to use --space)')
+  .option('--space <alias>', 'Resolve schema from space config')
+  .option('--raw', 'Output raw JSON file content')
+  .action((file, options) => showSchema(file, { space: options.space, raw: options.raw ?? false }));
+program.addCommand(schemasCmd);
+
+program
+  .command('readme')
+  .description('Show full README documentation')
+  .action(() => {
+    const readme = readFileSync(join(import.meta.dir, '..', 'README.md'), 'utf-8');
+    process.stdout.write(readme);
   });
 
 program.parse();

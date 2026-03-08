@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { glob } from 'glob';
 import matter from 'gray-matter';
-import { loadConfig, resolveSchema } from './config';
+import { applyFieldMap, loadConfig, resolveSchema } from './config';
 import { extractEmbeddedNodes, ON_A_PAGE_TYPES } from './parse-embedded';
 import { resolveParentLinks } from './resolve-links';
 import { loadMetadata, resolveNodeType } from './schema';
@@ -18,6 +18,7 @@ export async function readSpaceDirectory(
 
   const resolvedSchemaPath = resolveSchema(options?.schemaPath, config, space);
   const { hierarchy, aliases } = loadMetadata(resolvedSchemaPath);
+  const fieldMap = space?.fieldMap;
 
   const templateDir = options?.templateDir ?? space?.templateDir ?? config.templateDir;
   const absoluteTemplateDir = templateDir ? resolve(templateDir) : undefined;
@@ -42,21 +43,23 @@ export async function readSpaceDirectory(
       continue;
     }
 
-    if (!parsed.data.type) {
+    const data = applyFieldMap(parsed.data, fieldMap);
+
+    if (!data.type) {
       nonSpace.push(file);
       continue;
     }
 
-    if (ON_A_PAGE_TYPES.includes(parsed.data.type) && !options?.includeOnAPageFiles) {
+    if (ON_A_PAGE_TYPES.includes(data.type as string) && !options?.includeOnAPageFiles) {
       continue;
     }
 
-    const pageType = parsed.data.type as string;
+    const pageType = data.type as string;
     const fileBase = basename(file, '.md');
 
     nodes.push({
       label: file,
-      schemaData: { title: fileBase, ...parsed.data },
+      schemaData: { title: fileBase, ...data },
       linkTargets: [fileBase],
       resolvedType: resolveNodeType(pageType, aliases),
     });
@@ -69,6 +72,7 @@ export async function readSpaceDirectory(
         pageType,
         hierarchy,
         aliases,
+        fieldMap,
       });
       nodes.push(...embedded);
     }

@@ -3,10 +3,10 @@ import { join } from 'node:path';
 import { readSpaceDirectory } from '../src/read-space-directory';
 import { readSpaceOnAPage } from '../src/read-space-on-a-page';
 import { resolveParentLinks } from '../src/resolve-links';
-import { createValidator } from '../src/schema';
+import { bundledSchemasDir, createValidator } from '../src/schema';
 import type { SpaceNode } from '../src/types';
 
-const DEFAULT_SCHEMA_PATH = join(import.meta.dir, '../schemas/general.json');
+const DEFAULT_SCHEMA_PATH = join(bundledSchemasDir, 'general.json');
 const VALID_DIR = join(import.meta.dir, 'fixtures/general/valid-ost');
 const INVALID_DIR = join(import.meta.dir, 'fixtures/general/invalid-ost');
 const VALID_PAGE = join(import.meta.dir, 'fixtures/general/on-a-page-valid.md');

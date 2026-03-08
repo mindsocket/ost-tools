@@ -122,6 +122,16 @@ bun run test:smoke
 
 # Build compiled output
 bun run build
+
+# Link built package locally so `bunx ost-tools` picks up changes
+bun link
+```
+
+### Releasing
+```bash
+bun pm version patch   # or minor / major
+git push --follow-tags
+npm publish
 ```
 
 ## License

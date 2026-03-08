@@ -4,6 +4,7 @@ import { toString as mdastToString } from 'mdast-util-to-string';
 import remarkGfm from 'remark-gfm';
 import remarkParse from 'remark-parse';
 import { unified } from 'unified';
+import { applyFieldMap } from './config';
 import { resolveNodeType } from './schema';
 import type { SpaceNode, SpaceOnAPageDiagnostics } from './types';
 
@@ -129,6 +130,7 @@ function processListItem(
   makeLabel: (title: string) => string,
   buildLinkTargets: (title: string) => string[],
   aliases: Record<string, string>,
+  fieldMap?: Record<string, string>,
 ): void {
   const firstPara = item.children.find((c) => c.type === 'paragraph') as Paragraph | undefined;
 
@@ -138,7 +140,8 @@ function processListItem(
   }
 
   const rawText = mdastToString(firstPara);
-  const { cleanText, fields } = extractBracketedFields(rawText);
+  const { cleanText, fields: rawFields } = extractBracketedFields(rawText);
+  const fields = applyFieldMap(rawFields, fieldMap) as Record<string, string>;
 
   if (fields.type) {
     const dashIdx = cleanText.indexOf(' - ');
@@ -167,7 +170,7 @@ function processListItem(
     for (const child of item.children) {
       if (child.type === 'list') {
         for (const subItem of (child as List).children) {
-          processListItem(subItem, nestedParentRef, newNode, nodes, makeLabel, buildLinkTargets, aliases);
+          processListItem(subItem, nestedParentRef, newNode, nodes, makeLabel, buildLinkTargets, aliases, fieldMap);
         }
       }
     }
@@ -198,6 +201,12 @@ export interface ExtractEmbeddedOptions {
    * Type aliases mapping (alias -> canonical type) for resolving types.
    */
   aliases?: Record<string, string>;
+  /**
+   * Field name remapping (file field name → canonical field name).
+   * Applied to all extracted inline fields, YAML blocks, and paragraph fields.
+   * Example: { "record_type": "type" } renames `record_type` to `type` in extracted data.
+   */
+  fieldMap?: Record<string, string>;
 }
 
 export interface ExtractEmbeddedResult {
@@ -212,7 +221,7 @@ export interface ExtractEmbeddedResult {
  * (directory) to find embedded sub-nodes within a page's content.
  */
 export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptions): ExtractEmbeddedResult {
-  const { pageTitle, pageType, hierarchy, aliases = {} } = options;
+  const { pageTitle, pageType, hierarchy, aliases = {}, fieldMap } = options;
   const isOnAPageMode = pageType === undefined || ON_A_PAGE_TYPES.includes(pageType);
 
   const nodes: SpaceNode[] = [];
@@ -310,7 +319,8 @@ export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptio
       parseState = 'active';
 
       const rawText = mdastToString(heading);
-      const { cleanText: afterBracketed, fields: inlineFields } = extractBracketedFields(rawText);
+      const { cleanText: afterBracketed, fields: rawInlineFields } = extractBracketedFields(rawText);
+      const inlineFields = applyFieldMap(rawInlineFields, fieldMap) as Record<string, string>;
       const { cleanText: title, anchor } = extractAnchor(afterBracketed);
 
       const anchorType = anchor ? anchorToNodeType(anchor, hierarchy) : undefined;
@@ -366,19 +376,28 @@ export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptio
     } else if (child.type === 'list') {
       const parentRef = currentParentRef();
       for (const item of (child as List).children) {
-        processListItem(item, parentRef, currentContextNode, nodes, makeLabel, buildListItemLinkTargets, aliases);
+        processListItem(
+          item,
+          parentRef,
+          currentContextNode,
+          nodes,
+          makeLabel,
+          buildListItemLinkTargets,
+          aliases,
+          fieldMap,
+        );
       }
     } else if (child.type === 'paragraph') {
       const rawText = mdastToString(child);
       const { cleanText: afterBracketed, fields: bracketedFields } = extractBracketedFields(rawText);
       const { remainingText, fields: unbracketedFields } = extractUnbracketedFields(afterBracketed);
 
-      const allFields = { ...unbracketedFields, ...bracketedFields };
+      const allFields = applyFieldMap({ ...unbracketedFields, ...bracketedFields }, fieldMap);
       if ('type' in allFields) {
         const title = currentContextNode.schemaData.title as string | undefined;
         throw new Error(
           `Type override via paragraph field is not supported at "${title ?? currentContextNode.label}". ` +
-            `Put [type:: ${allFields.type}] directly in the heading text.`,
+            `Put [type:: ${(allFields as Record<string, string>).type}] directly in the heading text.`,
         );
       }
 
@@ -397,7 +416,7 @@ export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptio
         }
 
         if (parsed && typeof parsed === 'object') {
-          Object.assign(currentContextNode.schemaData, parsed as Record<string, unknown>);
+          Object.assign(currentContextNode.schemaData, applyFieldMap(parsed as Record<string, unknown>, fieldMap));
         } else {
           appendContent(currentContextNode, code.value);
         }
