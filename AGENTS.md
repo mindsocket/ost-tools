@@ -14,7 +14,7 @@ There are several places that need reviewing and updating with any new feature o
 - README.md - documentation, also displayed with `ost-tools readme` command
 - AGENTS.md - this file
 - docs/* - includes architecture, concepts etc
-- skills/ost-skills/* - skills information for AI agents
+- skills/ost-tools/* - skills information for AI agents
 
 ## Project Context
 

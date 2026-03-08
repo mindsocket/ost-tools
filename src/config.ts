@@ -103,8 +103,7 @@ function resolveRelativePaths(config: Config, configDir: string): Config {
 
 function _loadConfig(path: string): Config {
   if (!existsSync(path)) {
-    console.error(`Config file not found: ${path}`);
-    process.exit(1);
+    throw new Error(`Config file not found: ${path}`);
   }
 
   const config = JSON5.parse(readFileSync(path, 'utf-8'));
@@ -120,6 +119,10 @@ function _loadConfig(path: string): Config {
 
 export function loadConfig(): Config {
   const path = configPath();
+  if (!existsSync(path)) {
+    console.warn(`Config file not found: ${path}`);
+    return { spaces: [] };
+  }
   const config = _loadConfig(path);
   return resolveRelativePaths(config, dirname(resolve(path)));
 }
