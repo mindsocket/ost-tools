@@ -29,6 +29,7 @@ const CONFIG_SCHEMA = {
     schema: { type: 'string' },
     templateDir: { type: 'string' },
     templatePrefix: { type: 'string' },
+    includeSpacesFrom: { type: 'array', items: { type: 'string' } },
   },
   required: ['spaces'],
   additionalProperties: false,
@@ -55,13 +56,16 @@ export interface Config {
   schema?: string;
   templateDir?: string;
   templatePrefix?: string;
+  includeSpacesFrom?: string[];
 }
 
 let _configPathOverride: string | undefined;
+const _spaceSourceFiles = new Map<string, string>();
 
 /** Override the config file path used by loadConfig/updateSpaceField. */
 export function setConfigPath(path: string | undefined): void {
   _configPathOverride = path;
+  _spaceSourceFiles.clear(); // Clear cache when config path changes
 }
 
 export function configPath(): string {
@@ -111,8 +115,7 @@ function _loadConfig(path: string): Config {
   const validate = ajv.compile(CONFIG_SCHEMA);
 
   if (!validate(config)) {
-    console.error('Invalid config.json:', validate.errors);
-    process.exit(1);
+    throw new Error(`Invalid config in ${path}: ${JSON.stringify(validate.errors)}`);
   }
   return config as unknown as Config;
 }
@@ -124,6 +127,27 @@ export function loadConfig(): Config {
     return { spaces: [] };
   }
   const config = _loadConfig(path);
+  _spaceSourceFiles.clear();
+  // Track which spaces come from the main config file
+  for (const space of config.spaces) {
+    _spaceSourceFiles.set(space.alias, path);
+  }
+  // Load includeSpacesFrom configs and merge their spaces in, with later entries taking precedence over earlier ones
+  if (config.includeSpacesFrom) {
+    for (const includePath of config.includeSpacesFrom) {
+      // Resolve relative to the main config file
+      const resolvedIncludePath = isAbsolute(includePath) ? includePath : resolve(dirname(path), includePath);
+      const includedConfig = resolveRelativePaths(_loadConfig(resolvedIncludePath), dirname(resolvedIncludePath));
+      if (includedConfig.spaces.some((s) => config.spaces.some((existing) => existing.alias === s.alias))) {
+        throw new Error(`Included config contains spaces with duplicate aliases: ${resolvedIncludePath}`);
+      }
+      // Track which spaces come from this included config file
+      for (const space of includedConfig.spaces) {
+        _spaceSourceFiles.set(space.alias, resolvedIncludePath);
+      }
+      config.spaces.push(...includedConfig.spaces);
+    }
+  }
   return resolveRelativePaths(config, dirname(resolve(path)));
 }
 
@@ -137,7 +161,7 @@ export function resolveSpacePath(aliasOrPath: string, config: Config): string {
 export function getSpaceConfig(alias: string, config: Config): SpaceConfig {
   const space = config.spaces.find((s) => s.alias === alias);
   if (!space) {
-    throw new Error(`Unknown space config: "${alias}". Check config.json.`);
+    throw new Error(`Unknown space config: "${alias}". Check config.`);
   }
   return space;
 }
@@ -156,8 +180,7 @@ export interface TemplateSettings {
 export function resolveTemplateSettings(config: Config, space?: SpaceConfig): TemplateSettings {
   const templateDir = space?.templateDir ?? config.templateDir;
   if (!templateDir) {
-    console.error('Error: templateDir is required in config.json (global or per-space)');
-    process.exit(1);
+    throw new Error('templateDir not found in config (global or per-space)');
   }
   const templatePrefix = space?.templatePrefix ?? config.templatePrefix ?? '';
   return { templateDir, templatePrefix };
@@ -190,14 +213,17 @@ export function invertFieldMap(fieldMap: Record<string, string>): Record<string,
 
 type StringFields<T> = { [K in keyof T]: T[K] extends string | undefined ? K : never }[keyof T];
 
-/** Update a string field on a space entry and persist config.json. */
+/** Update a string field on a space entry and persist config. */
 export function updateSpaceField(alias: string, field: StringFields<SpaceConfig>, value: string): void {
-  const path = configPath();
-  const config = _loadConfig(path);
+  const sourcePath = _spaceSourceFiles.get(alias);
+  if (!sourcePath) {
+    throw new Error(`Space "${alias}" not found in any config file`);
+  }
+  const config = _loadConfig(sourcePath);
   const space = config.spaces?.find((s: SpaceConfig) => s.alias === alias);
   if (!space) {
-    throw new Error(`Unknown space config: "${alias}". Check config.json.`);
+    throw new Error(`Unknown space config: "${alias}". Check config.`);
   }
   (space as unknown as Record<string, unknown>)[field as string] = value;
-  writeFileSync(path, `${JSON5.stringify(config, null, 2)}\n`);
+  writeFileSync(sourcePath, `${JSON5.stringify(config, null, 2)}\n`);
 }

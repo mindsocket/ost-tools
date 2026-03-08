@@ -23,6 +23,8 @@ OST_TOOLS_CONFIG=path/to/config.json bunx ost-tools validate <space>
 
 **Always read the config first** to understand available spaces and their schema locations before running other commands.
 
+Tip: To reduce the need for `--config` flags consider, with user permission, using `includeSpacesFrom` in a central config file that's loaded by default (eg `~/.config/ost-tools/config.json`).
+
 ## Orientation
 
 Before working with a space, use these to understand what's configured:

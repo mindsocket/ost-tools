@@ -1,4 +1,5 @@
 {
+  "includeSpacesFrom": ["some-other-config.json"],
   "spaces": [
     {
       "alias": "ProductX",
