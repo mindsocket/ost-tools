@@ -15,10 +15,11 @@ describe('validate-hierarchy', () => {
   describe('hierarchy with selfRef', () => {
     const hierarchy = ['vision', 'mission', 'goal', 'opportunity', 'solution', 'experiment'];
     const metadata: SchemaMetadata = {
-      hierarchy,
-      levels: hierarchy.map((t) => makeLevel(t, { selfRef: ['goal', 'opportunity', 'solution'].includes(t) })),
+      hierarchy: {
+        levels: hierarchy.map((t) => makeLevel(t, { selfRef: ['goal', 'opportunity', 'solution'].includes(t) })),
+        allowSkipLevels: false,
+      },
       typeAliases: {},
-      allowSkipLevels: false,
     };
 
     it('passes when node has immediate parent in hierarchy', () => {
@@ -80,10 +81,11 @@ describe('validate-hierarchy', () => {
   describe('hierarchy with allowSkipLevels', () => {
     const hierarchy = ['vision', 'mission', 'goal', 'opportunity', 'solution', 'experiment'];
     const metadata: SchemaMetadata = {
-      hierarchy,
-      levels: hierarchy.map((t) => makeLevel(t, { selfRef: ['goal', 'opportunity', 'solution'].includes(t) })),
+      hierarchy: {
+        levels: hierarchy.map((t) => makeLevel(t, { selfRef: ['goal', 'opportunity', 'solution'].includes(t) })),
+        allowSkipLevels: true,
+      },
       typeAliases: {},
-      allowSkipLevels: true,
     };
 
     it('allows skipping hierarchy levels when allowSkipLevels is true', () => {
@@ -112,10 +114,11 @@ describe('validate-hierarchy', () => {
   describe('edge cases', () => {
     const hierarchy = ['vision', 'mission', 'goal', 'opportunity', 'solution', 'experiment'];
     const metadata: SchemaMetadata = {
-      hierarchy,
-      levels: hierarchy.map((t) => makeLevel(t, { selfRef: ['goal', 'opportunity', 'solution'].includes(t) })),
+      hierarchy: {
+        levels: hierarchy.map((t) => makeLevel(t, { selfRef: ['goal', 'opportunity', 'solution'].includes(t) })),
+        allowSkipLevels: false,
+      },
       typeAliases: {},
-      allowSkipLevels: false,
     };
 
     it('skips nodes not in hierarchy', () => {
@@ -151,10 +154,11 @@ describe('validate-hierarchy', () => {
   describe('violation format', () => {
     const hierarchy = ['vision', 'mission', 'goal'];
     const metadata: SchemaMetadata = {
-      hierarchy,
-      levels: hierarchy.map((t) => makeLevel(t)),
+      hierarchy: {
+        levels: hierarchy.map((t) => makeLevel(t)),
+        allowSkipLevels: false,
+      },
       typeAliases: {},
-      allowSkipLevels: false,
     };
 
     it('includes all required fields in violation', () => {

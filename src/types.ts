@@ -1,3 +1,5 @@
+import type { MetadataContractRuleGroups } from "./metadata-contract";
+
 export interface HierarchyLevel {
   type: string;
   field: string; // default "parent"
@@ -40,24 +42,6 @@ export interface SpaceDirectoryReadResult {
 /** Rule categories for organizing executable validation rules */
 export type RuleCategory = 'validation' | 'coherence' | 'workflow' | 'best-practice';
 
-/** A single executable rule with JSONata check expression */
-export interface Rule {
-  id: string;
-  description: string;
-  /** JSONata expression that evaluates to boolean (true = pass) */
-  check: string;
-  /** If set, only applies to nodes of this resolved type */
-  type?: string;
-  /** If 'global', evaluated once against the full node set rather than per node */
-  scope?: 'global';
-}
-
-export interface RulesMetadata {
-  validation?: Rule[];
-  coherence?: Rule[];
-  workflow?: Rule[];
-  bestPractice?: Rule[];
-}
 
 export interface RuleViolation {
   file: string;
@@ -76,9 +60,10 @@ export interface HierarchyViolation {
 }
 
 export interface SchemaMetadata {
-  hierarchy: string[]; // derived type-name list (same length/order as levels)
-  levels: HierarchyLevel[]; // full per-level config
+  hierarchy: {
+    levels: HierarchyLevel[]; // full per-level config
+    allowSkipLevels?: boolean;
+  };
   typeAliases?: Record<string, string>;
-  allowSkipLevels?: boolean;
-  rules?: RulesMetadata;
+  rules?: MetadataContractRuleGroups;
 }

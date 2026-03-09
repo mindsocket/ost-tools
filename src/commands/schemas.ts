@@ -83,7 +83,7 @@ function showDefs(defs: Record<string, unknown>): void {
 }
 
 function showMetadata(metadata: SchemaMetadata): void {
-  const parts = metadata.levels.map((l) => (l.selfRef ? `${l.type}(+)` : l.type));
+  const parts = metadata.hierarchy.levels.map((l) => (l.selfRef ? `${l.type}(+)` : l.type));
   console.log(`\nhierarchy: ${parts.join(' → ')}`);
 
   if (metadata.typeAliases && Object.keys(metadata.typeAliases).length > 0) {

@@ -1,5 +1,6 @@
 import { buildEvalContext, evaluateExpression } from './evaluate-rule';
-import type { Rule, RuleCategory, RulesMetadata, RuleViolation, SpaceNode } from './types';
+import type { MetadataContractRule, MetadataContractRuleGroups } from './metadata-contract';
+import type { RuleCategory, RuleViolation, SpaceNode } from './types';
 
 /**
  * Validate nodes against rules metadata.
@@ -9,7 +10,7 @@ import type { Rule, RuleCategory, RulesMetadata, RuleViolation, SpaceNode } from
  * @param rules - Rules metadata with categorized rules
  * @returns Array of rule violations
  */
-export async function validateRules(nodes: SpaceNode[], rules: RulesMetadata): Promise<RuleViolation[]> {
+export async function validateRules(nodes: SpaceNode[], rules: MetadataContractRuleGroups): Promise<RuleViolation[]> {
   const violations: RuleViolation[] = [];
 
   // Build node index for efficient lookups
@@ -22,7 +23,7 @@ export async function validateRules(nodes: SpaceNode[], rules: RulesMetadata): P
   }
 
   // Collect all rules from each category
-  const allCategories: Array<{ category: RuleCategory; rules: Rule[] }> = [
+  const allCategories: Array<{ category: RuleCategory; rules: MetadataContractRule[] }> = [
     { category: 'validation', rules: rules.validation ?? [] },
     { category: 'coherence', rules: rules.coherence ?? [] },
     { category: 'workflow', rules: rules.workflow ?? [] },

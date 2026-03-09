@@ -2,7 +2,9 @@
   "$schema": "ost-tools://_ost_tools_schema_meta",
   "$id": "ost-tools-test://schema-metadata/valid",
   "$metadata": {
-    "hierarchy": ["goal"],
+    "hierarchy": {
+      "levels": ["goal"]
+    },
     "aliases": {
       "outcome": "goal"
     }

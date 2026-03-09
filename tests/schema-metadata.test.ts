@@ -12,7 +12,14 @@ describe('schema metadata', () => {
   it('loads top-level $metadata from bundled schemas', () => {
     const metadata = loadMetadata(GENERAL_SCHEMA_PATH);
 
-    expect(metadata.hierarchy).toEqual(['vision', 'mission', 'goal', 'opportunity', 'solution', 'experiment']);
+    expect(metadata.hierarchy.levels.map((level) => level.type)).toEqual([
+      'vision',
+      'mission',
+      'goal',
+      'opportunity',
+      'solution',
+      'experiment',
+    ]);
     expect(metadata.typeAliases?.outcome).toBe('goal');
   });
 

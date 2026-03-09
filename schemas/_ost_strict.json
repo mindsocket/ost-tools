@@ -5,7 +5,9 @@
   // This schema follows Teresa Torres' canonical 4-level structure as described in
   // "Continuous Discovery Habits" (2021) and at producttalk.org.
   "$metadata": {
-    "hierarchy": ["outcome", { "type": "opportunity", "selfRef": true }, "solution", "assumption_test"],
+    "hierarchy": {
+      "levels": ["outcome", { "type": "opportunity", "selfRef": true }, "solution", "assumption_test"]
+    },
     "rules": {
       "workflow": [
         {
