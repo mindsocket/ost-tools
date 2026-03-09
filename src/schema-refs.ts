@@ -157,15 +157,25 @@ function flattenAllOf(
   rootSchema: AnySchemaObject,
   registry: Map<string, AnySchemaObject>,
   stack: Set<string>,
+  visited = new Set<string>(),
 ): ResolvedSchema[] {
   const resolved = resolveRefWithContext(def, rootSchema, registry, stack);
   if (!resolved) return [];
 
+  const schemaId = typeof resolved.schema.$id === 'string' ? resolved.schema.$id : undefined;
+  if (schemaId && visited.has(schemaId)) {
+    // Cycle detected via allOf: this schema is already being processed
+    return [];
+  }
+  if (schemaId) visited.add(schemaId);
+
   const parts: ResolvedSchema[] = [];
   const allOf = asArray<AnySchemaObject>(resolved.schema.allOf);
   for (const sub of allOf) {
-    parts.push(...flattenAllOf(sub, resolved.rootSchema, registry, stack));
+    parts.push(...flattenAllOf(sub, resolved.rootSchema, registry, stack, visited));
   }
+
+  if (schemaId) visited.delete(schemaId);
 
   const own = { ...resolved.schema } as Record<string, unknown>;
   delete own.allOf;
