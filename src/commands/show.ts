@@ -11,10 +11,11 @@ export async function show(path: string) {
   const config = loadConfig();
   const space = config.spaces.find((s) => resolve(s.path) === absolutePath);
   const resolvedSchemaPath = resolveSchema(undefined, config, space);
-  const { hierarchy, levels } = loadMetadata(resolvedSchemaPath);
+  const metadata = loadMetadata(resolvedSchemaPath);
+  const levels = metadata.hierarchy.levels;
 
   const rootType = levels[0]?.type;
-  const hierarchyTypes = new Set(hierarchy);
+  const hierarchyTypes = new Set(levels.map((level) => level.type));
 
   let nodes: SpaceNode[];
   if (statSync(absolutePath).isFile()) {

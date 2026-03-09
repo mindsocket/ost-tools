@@ -17,7 +17,9 @@ export async function readSpaceDirectory(
   const space = config.spaces.find((s) => resolve(s.path) === absoluteDirectory);
 
   const resolvedSchemaPath = resolveSchema(options?.schemaPath, config, space);
-  const { hierarchy, levels, typeAliases } = loadMetadata(resolvedSchemaPath);
+  const metadata = loadMetadata(resolvedSchemaPath);
+  const hierarchyTypes = metadata.hierarchy.levels.map((level) => level.type);
+  const { typeAliases } = metadata;
   const fieldMap = space?.fieldMap;
 
   const templateDir = options?.templateDir ?? space?.templateDir ?? config.templateDir;
@@ -71,7 +73,7 @@ export async function readSpaceDirectory(
       const { nodes: embedded } = extractEmbeddedNodes(parsed.content, {
         pageTitle: fileBase,
         pageType,
-        hierarchy,
+        hierarchy: hierarchyTypes,
         typeAliases: typeAliases,
         fieldMap,
       });
@@ -79,6 +81,6 @@ export async function readSpaceDirectory(
     }
   }
 
-  resolveLinks(nodes, levels);
+  resolveLinks(nodes, metadata.hierarchy.levels);
   return { nodes, skipped, nonSpace };
 }

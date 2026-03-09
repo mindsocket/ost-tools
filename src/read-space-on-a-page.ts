@@ -22,15 +22,17 @@ export function readSpaceOnAPage(filePath: string, schemaPath?: string): SpaceOn
   const config = loadConfig();
   const space = config.spaces.find((s) => resolve(s.path) === resolve(filePath));
   const resolvedSchemaPath = resolveSchema(schemaPath, config, space);
-  const { hierarchy, levels, typeAliases } = loadMetadata(resolvedSchemaPath);
+  const metadata = loadMetadata(resolvedSchemaPath);
+  const hierarchyTypes = metadata.hierarchy.levels.map((level) => level.type);
+  const { typeAliases } = metadata;
 
   const pageTitle = basename(filePath, '.md');
   const { nodes, diagnostics } = extractEmbeddedNodes(body, {
     pageTitle,
     pageType: 'space_on_a_page',
-    hierarchy,
+    hierarchy: hierarchyTypes,
     typeAliases,
   });
-  resolveLinks(nodes, levels);
+  resolveLinks(nodes, metadata.hierarchy.levels);
   return { nodes, diagnostics };
 }

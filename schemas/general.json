@@ -4,14 +4,16 @@
   "title": "Strategy and opportunity ladder",
   "description": "Validates frontmatter for space node files",
   "$metadata": {
-    "hierarchy": [
-      "vision",
-      "mission",
-      { "type": "goal", "selfRef": true },
-      { "type": "opportunity", "selfRef": true },
-      { "type": "solution", "selfRef": true },
-      "experiment"
-    ],
+    "hierarchy": {
+      "levels": [
+        "vision",
+        "mission",
+        { "type": "goal", "selfRef": true },
+        { "type": "opportunity", "selfRef": true },
+        { "type": "solution", "selfRef": true },
+        "experiment"
+      ]
+    },
     "aliases": {
       "outcome": "goal",
       "assumption_test": "experiment",

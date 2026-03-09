@@ -2,7 +2,9 @@ import type { HierarchyViolation, SchemaMetadata, SpaceNode } from './types';
 
 export function validateHierarchy(nodes: SpaceNode[], metadata: SchemaMetadata): HierarchyViolation[] {
   const violations: HierarchyViolation[] = [];
-  const { hierarchy, levels, allowSkipLevels = false } = metadata;
+  const levels = metadata.hierarchy.levels;
+  const hierarchy = levels.map((level) => level.type);
+  const allowSkipLevels = metadata.hierarchy.allowSkipLevels ?? false;
 
   const nodeIndex = new Map<string, SpaceNode>();
   for (const node of nodes) {
