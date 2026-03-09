@@ -31,4 +31,32 @@ describe('schema refs', () => {
 
     expect(status.enum).toContain('exploring');
   });
+
+  it('detects cycles in mutually recursive allOf schemas', () => {
+    // Schema A: { "$id": "A", "allOf": [{ "$ref": "B" }] }
+    // Schema B: { "$id": "B", "allOf": [{ "$ref": "A" }] }
+    const schemaA: AnySchemaObject = {
+      $id: 'http://example.com/A',
+      allOf: [{ $ref: 'http://example.com/B' }],
+      properties: { fromA: { type: 'string' } },
+    };
+    const schemaB: AnySchemaObject = {
+      $id: 'http://example.com/B',
+      allOf: [{ $ref: 'http://example.com/A' }],
+      properties: { fromB: { type: 'number' } },
+    };
+
+    const registry = new Map<string, AnySchemaObject>([
+      ['http://example.com/A', schemaA],
+      ['http://example.com/B', schemaB],
+    ]);
+
+    // This should not throw or infinite loop - it should detect the cycle and return a result
+    const { properties, required } = mergeVariantProperties(schemaA, schemaA, registry);
+
+    // Both properties should be present despite the cycle
+    expect(properties.fromA).toBeDefined();
+    expect(properties.fromB).toBeDefined();
+    expect(required).toEqual([]);
+  });
 });
