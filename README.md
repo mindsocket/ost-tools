@@ -149,6 +149,22 @@ Generates a Mermaid `graph TD` diagram from validated space nodes:
 - Handles orphan nodes (no parent) as a separate cluster
 - Outputs to file or stdout
 
+### Show schema ERD
+
+```bash
+ost-tools schemas show <schema-file> [--mermaid-erd] [--space <name>]
+```
+
+Generates a Mermaid Entity Relationship Diagram from a schema:
+- Shows all entity types and their properties
+- Displays parent-child relationships based on hierarchy metadata
+- Useful for visualizing schema structure during development
+
+Example:
+```bash
+ost-tools schemas show general --mermaid-erd
+```
+
 ### Sync space to Miro
 
 ```bash

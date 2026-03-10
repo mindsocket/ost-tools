@@ -117,11 +117,18 @@ schemasCmd
   .action(() => listSchemas());
 schemasCmd
   .command('show')
-  .description('Show schema structure (or raw JSON with --raw)')
+  .description('Show schema structure (or raw JSON with --raw, or Mermaid ERD with --mermaid-erd)')
   .argument('[file]', 'Schema filename or path (omit to use --space)')
   .option('--space <name>', 'Resolve schema from space config')
   .option('--raw', 'Output raw JSON file content')
-  .action((file, options) => showSchema(file, { space: options.space, raw: options.raw ?? false }));
+  .option('--mermaid-erd', 'Output Mermaid Entity Relationship Diagram')
+  .action((file, options) =>
+    showSchema(file, {
+      space: options.space,
+      raw: options.raw ?? false,
+      mermaidErd: options.mermaidErd ?? false,
+    }),
+  );
 program.addCommand(schemasCmd);
 
 program

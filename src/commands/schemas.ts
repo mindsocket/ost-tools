@@ -28,6 +28,12 @@ interface EntityVariant {
   required: string[];
 }
 
+interface EntityInfo {
+  type: string;
+  properties: string[];
+  required: string[];
+}
+
 function extractEntities(
   oneOf: unknown[],
   registry: Map<string, AnySchemaObject>,
@@ -46,6 +52,38 @@ function extractEntities(
       required: required.filter((r) => r !== 'type'),
     };
   });
+}
+
+/**
+ * Extract entity information for ERD generation.
+ * Returns a flat list of all entity types with their properties.
+ */
+function extractEntityInfo(
+  oneOf: unknown[],
+  registry: Map<string, AnySchemaObject>,
+  schema: SchemaObject,
+): EntityInfo[] {
+  const result: EntityInfo[] = [];
+  for (const entry of oneOf) {
+    const { properties, required } = mergeVariantProperties(entry as AnySchemaObject, schema, registry);
+    const typeDef = properties.type as AnySchemaObject | undefined;
+    if (typeDef?.const) {
+      result.push({
+        type: String(typeDef.const),
+        properties: Object.keys(properties).filter((k) => k !== 'type'),
+        required: required.filter((r) => r !== 'type'),
+      });
+    } else if (Array.isArray(typeDef?.enum)) {
+      for (const t of typeDef.enum as unknown[]) {
+        result.push({
+          type: String(t),
+          properties: Object.keys(properties).filter((k) => k !== 'type'),
+          required: required.filter((r) => r !== 'type'),
+        });
+      }
+    }
+  }
+  return result;
 }
 
 function showEntities(oneOf: unknown[], registry: Map<string, AnySchemaObject>, schema: SchemaObject): void {
@@ -129,6 +167,53 @@ function showRegistry(schemaPath: string, registry: Map<string, AnySchemaObject>
   }
 }
 
+/**
+ * Generate Mermaid ERD from schema metadata.
+ * Shows entity types, properties, and parent-child relationships.
+ */
+function generateMermaidErd(metadata: SchemaMetadata, entities: EntityInfo[]): string {
+  let mmd = 'erDiagram\n';
+
+  const hierarchyLevels = metadata.hierarchy?.levels ?? [];
+
+  // Generate entity definitions with properties
+  for (const entity of entities) {
+    const safeName = entity.type.replace(/[^a-zA-Z0-9_]/g, '_');
+    mmd += `  ${safeName} {\n`;
+    mmd += `    string title PK\n`;
+
+    for (const prop of entity.properties) {
+      if (prop === 'title') continue; // Skip title since it's already declared as PK
+      const isRequired = entity.required.includes(prop);
+      const optional = isRequired ? '' : ' "optional"';
+      mmd += `    string ${prop}${optional}\n`;
+    }
+    mmd += '  }\n';
+  }
+
+  // Generate relationships based on hierarchy metadata
+  if (hierarchyLevels.length > 0) {
+    for (let i = 0; i < hierarchyLevels.length - 1; i++) {
+      const current = hierarchyLevels[i];
+      const next = hierarchyLevels[i + 1];
+      if (!current || !next) continue;
+
+      const currentSafe = current.type.replace(/[^a-zA-Z0-9_]/g, '_');
+      const nextSafe = next.type.replace(/[^a-zA-Z0-9_]/g, '_');
+
+      // Determine cardinality based on selfRef
+      // If next.selfRef is true, the child type can have parents of the same type
+      if (next.selfRef) {
+        mmd += `  ${currentSafe} ||--|{ ${nextSafe} : "parent"\n`;
+      } else {
+        mmd += `  ${currentSafe} ||--o{ ${nextSafe} : "parent"\n`;
+      }
+    }
+  }
+
+  return mmd;
+}
+
 export function listSchemas(): void {
   const config = loadConfig();
 
@@ -170,7 +255,10 @@ export function listSchemas(): void {
   }
 }
 
-export function showSchema(file: string | undefined, options: { space?: string; raw: boolean }): void {
+export function showSchema(
+  file: string | undefined,
+  options: { space?: string; raw: boolean; mermaidErd?: boolean },
+): void {
   const config = loadConfig();
 
   let schemaPath: string;
@@ -210,6 +298,15 @@ export function showSchema(file: string | undefined, options: { space?: string; 
 
   const schema = JSON5.parse(content) as SchemaObject;
   const registry = buildFullRegistry(schemaPath) as Map<string, AnySchemaObject>;
+
+  // Handle --mermaid-erd: generate ERD and exit
+  if (options.mermaidErd) {
+    const metadata = loadMetadata(schemaPath);
+    const entityInfo = Array.isArray(schema.oneOf) ? extractEntityInfo(schema.oneOf, registry, schema) : [];
+    const mermaid = generateMermaidErd(metadata, entityInfo);
+    process.stdout.write(mermaid);
+    return;
+  }
 
   console.log(`$id: ${schema.$id ?? '(none)'}`);
   if (schema.title) console.log(`title: ${schema.title}`);
