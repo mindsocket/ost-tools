@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { OST_TOOLS_DIALECT_META_SCHEMA } from '../src/metadata-contract.js';
 
@@ -8,5 +9,11 @@ await mkdir(new URL('.', OUTPUT_PATH), { recursive: true });
 
 // Write the schema as formatted JSON
 await writeFile(OUTPUT_PATH, `${JSON.stringify(OST_TOOLS_DIALECT_META_SCHEMA, null, 2)}\n`);
+
+// Format the generated file with biome
+execSync(`bunx biome check --write ${OUTPUT_PATH.pathname}`, {
+  cwd: new URL('..', import.meta.url).pathname,
+  stdio: 'inherit',
+});
 
 console.log(`Generated schema metadata: ${OUTPUT_PATH.pathname}`);

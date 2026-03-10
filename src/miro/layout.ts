@@ -1,12 +1,5 @@
-import type { SpaceNode } from '../types';
-
-const TYPE_DEPTH: Record<string, number> = {
-  vision: 0,
-  mission: 1,
-  goal: 2,
-  opportunity: 3,
-  solution: 4,
-};
+import { buildDepthMap } from '../graph-helpers';
+import type { HierarchyLevel, SpaceNode } from '../types';
 
 export const CARD_WIDTH = 320;
 const CARD_HEIGHT = 160;
@@ -25,12 +18,18 @@ export interface LayoutResult {
  * New cards are laid out in rows grouped by OST type depth, starting below
  * the lowest existing card (or at the origin if no existing cards).
  *
+ * @param hierarchyLevels - Hierarchy levels from metadata. Depths are computed from level position.
+ *
  * Returns positions and a bounding box covering all cards (for frame sizing).
  */
 export function layoutNewCards(
   newNodes: SpaceNode[],
   existingPositions: Map<string, { x: number; y: number }>,
+  hierarchyLevels: HierarchyLevel[],
 ): LayoutResult {
+  // Build depth map from hierarchy levels (position in hierarchy = depth)
+  const depthMap = buildDepthMap(hierarchyLevels);
+
   // Find the lowest y among existing cards
   let lowestY = 0;
   for (const pos of existingPositions.values()) {
@@ -44,7 +43,7 @@ export function layoutNewCards(
   // Group new nodes by depth
   const byDepth = new Map<number, SpaceNode[]>();
   for (const node of newNodes) {
-    const depth = TYPE_DEPTH[node.schemaData.type as string] ?? 4;
+    const depth = depthMap.get(node.schemaData.type as string) ?? depthMap.size;
     if (!byDepth.has(depth)) byDepth.set(depth, []);
     byDepth.get(depth)?.push(node);
   }

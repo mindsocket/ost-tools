@@ -1,12 +1,18 @@
-import type { SpaceNode } from '../types';
+import type { HierarchyLevel, SpaceNode } from '../types';
 
-const TYPE_COLORS: Record<string, string> = {
-  vision: '#ff9999',
-  mission: '#99ccff',
-  goal: '#99ff99',
-  opportunity: '#ffcc99',
-  solution: '#cc99ff',
-};
+// Color palette for hierarchy levels (distinct, visually appealing colors)
+const COLOR_PALETTE = [
+  '#ff9999', // Light red
+  '#99ccff', // Light blue
+  '#99ff99', // Light green
+  '#ffcc99', // Light orange
+  '#cc99ff', // Light purple
+  '#ffccff', // Light pink
+  '#ccffcc', // Pale mint
+  '#ffffcc', // Light yellow
+  '#ccccff', // Light indigo
+  '#ffcccc', // Pale red
+];
 
 const STATUS_ICONS: Record<string, string> = {
   active: '*',
@@ -18,8 +24,24 @@ const STATUS_ICONS: Record<string, string> = {
   archived: 'x',
 };
 
-export function getCardColor(type: string): string {
-  return TYPE_COLORS[type] ?? '#e0e0e0';
+/**
+ * Get card color based on type and hierarchy levels.
+ * Colors are assigned from palette based on level position.
+ *
+ * @param type - The node's type string
+ * @param hierarchyLevels - Hierarchy levels from metadata
+ */
+export function getCardColor(type: string, hierarchyLevels: HierarchyLevel[]): string {
+  // Find the level index for this type
+  const levelIndex = hierarchyLevels.findIndex((level) => level.type === type);
+  if (levelIndex >= 0) {
+    // Assign color from palette based on level position
+    const color = COLOR_PALETTE[levelIndex % COLOR_PALETTE.length];
+    if (color) return color;
+  }
+
+  // Type not found in hierarchy - return default gray
+  return '#e0e0e0';
 }
 
 export function buildCardTitle(node: SpaceNode): string {

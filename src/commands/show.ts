@@ -1,6 +1,7 @@
 import { statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { loadConfig, resolveSchema } from '../config';
+import { classifyNodes } from '../graph-helpers';
 import { readSpaceDirectory } from '../read-space-directory';
 import { readSpaceOnAPage } from '../read-space-on-a-page';
 import { loadMetadata } from '../schema';
@@ -14,9 +15,6 @@ export async function show(path: string) {
   const metadata = loadMetadata(resolvedSchemaPath);
   const levels = metadata.hierarchy?.levels ?? [];
 
-  const rootType = levels[0]?.type;
-  const hierarchyTypes = new Set(levels.map((level) => level.type));
-
   let nodes: SpaceNode[];
   if (statSync(absolutePath).isFile()) {
     ({ nodes } = readSpaceOnAPage(absolutePath));
@@ -24,46 +22,7 @@ export async function show(path: string) {
     ({ nodes } = await readSpaceDirectory(absolutePath));
   }
 
-  // Build children map (parent title → child nodes in document order)
-  const children = new Map<string, SpaceNode[]>();
-  for (const node of nodes) {
-    children.set(node.schemaData.title as string, []);
-  }
-
-  // Categorize nodes and populate children map
-  const hierarchyRoots: SpaceNode[] = [];
-  const orphans: SpaceNode[] = [];
-  const nonHierarchy: SpaceNode[] = [];
-
-  for (const node of nodes) {
-    const nodeType = node.resolvedType;
-
-    if (!hierarchyTypes.has(nodeType)) {
-      nonHierarchy.push(node);
-      continue; // non-hierarchy nodes don't participate in the tree
-    }
-
-    if (node.resolvedParents.length === 0) {
-      if (nodeType === rootType) {
-        hierarchyRoots.push(node);
-      } else {
-        orphans.push(node);
-      }
-    } else {
-      let addedToAParent = false;
-      for (const parent of node.resolvedParents) {
-        const siblings = children.get(parent);
-        if (siblings) {
-          siblings.push(node);
-          addedToAParent = true;
-        }
-      }
-      if (!addedToAParent) {
-        // All parents dangling — treat as orphan
-        orphans.push(node);
-      }
-    }
-  }
+  const { hierarchyRoots, orphans, nonHierarchy, children } = classifyNodes(nodes, levels);
 
   const seen = new Set<string>();
 

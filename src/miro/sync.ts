@@ -1,7 +1,9 @@
 import { statSync } from 'node:fs';
-import { loadConfig, resolveSpacePath, updateSpaceField } from '../config';
+import { loadConfig, resolveSchema, resolveSpacePath, updateSpaceField } from '../config';
+import { buildHierarchyNodeSet, classifyNodes } from '../graph-helpers';
 import { readSpaceDirectory } from '../read-space-directory';
 import { readSpaceOnAPage } from '../read-space-on-a-page';
+import { loadMetadata } from '../schema';
 import type { SpaceNode } from '../types';
 import { computeMiroCardHash, computeNodeHash, loadCache, saveCache } from './cache';
 import { MiroClient, MiroNotFoundError } from './client';
@@ -61,13 +63,30 @@ export async function miroSync(spaceOrPath: string, options: SyncOptions): Promi
     return;
   }
 
+  // Load metadata and filter to hierarchy nodes only
+  const resolvedSchemaPath = resolveSchema(undefined, config, space);
+  const metadata = loadMetadata(resolvedSchemaPath);
+  const levels = metadata.hierarchy?.levels ?? [];
+
+  const { hierarchyRoots, orphans, nonHierarchy, children } = classifyNodes(nodes, levels);
+
+  // Build set of all hierarchy node titles (roots + orphans + all descendants)
+  const hierarchyNodeTitles = buildHierarchyNodeSet({ hierarchyRoots, orphans, nonHierarchy, children });
+
+  // Filter nodes to only hierarchy nodes
+  nodes = nodes.filter((n) => hierarchyNodeTitles.has(n.schemaData.title as string));
+
+  if (options.verbose && nonHierarchy.length > 0) {
+    console.log(`Excluded ${nonHierarchy.length} non-hierarchy nodes from sync`);
+  }
+
   const client = new MiroClient(boardId, token);
   let frameId: string;
   let layoutOffset: { x: number; y: number } | null = null;
 
   if (options.newFrame) {
     // Calculate layout bounds to size the frame appropriately
-    const { bounds } = layoutNewCards(nodes, new Map());
+    const { bounds } = layoutNewCards(nodes, new Map(), levels);
     const frameWidth = Math.max(1600, bounds.maxX - bounds.minX);
     const frameHeight = Math.max(1200, bounds.maxY - bounds.minY);
 
@@ -105,26 +124,34 @@ export async function miroSync(spaceOrPath: string, options: SyncOptions): Promi
   const cache = loadCache(boardId, frameId);
   cache.spaceName = space.name;
 
-  // 5. Verify cache against actual board state
+  // 5. Verify cache against actual board state (skip for new frames)
   // Fetch all cards from the frame to build a verified mapping
   const existingPositions = new Map<string, { x: number; y: number }>();
   const verifiedCardIds = new Map<string, string>(); // title → cardId (only cards that exist on board)
   const miroCardData = new Map<string, { title: string; description: string }>(); // cardId → actual Miro data
   const staleCacheEntries: string[] = []; // titles with cached card IDs that no longer exist
 
-  const frameItems = await client.getItemsInFrame(frameId);
-  const boardCardIds = new Set<string>();
+  // Skip fetching frame items for new frames (there are no existing cards)
+  if (!options.newFrame) {
+    // Build reverse lookup map (cardId → title) for O(1) cache lookup
+    const cacheByCardId = new Map<string, string>();
+    for (const [title, cached] of Object.entries(cache.nodes)) {
+      cacheByCardId.set(cached.miroCardId, title);
+    }
 
-  for (const item of frameItems) {
-    if (item.type === 'card' && item.position && item.data) {
-      boardCardIds.add(item.id);
-      miroCardData.set(item.id, {
-        title: item.data.title,
-        description: item.data.description ?? '',
-      });
-      // Find which cached node this card belongs to
-      for (const [title, cached] of Object.entries(cache.nodes)) {
-        if (cached.miroCardId === item.id) {
+    const frameItems = await client.getItemsInFrame(frameId);
+    const boardCardIds = new Set<string>();
+
+    for (const item of frameItems) {
+      if (item.type === 'card' && item.position && item.data) {
+        boardCardIds.add(item.id);
+        miroCardData.set(item.id, {
+          title: item.data.title,
+          description: item.data.description ?? '',
+        });
+        // Find which cached node this card belongs to using reverse lookup
+        const title = cacheByCardId.get(item.id);
+        if (title) {
           existingPositions.set(title, {
             x: item.position.x,
             y: item.position.y,
@@ -133,20 +160,20 @@ export async function miroSync(spaceOrPath: string, options: SyncOptions): Promi
         }
       }
     }
-  }
 
-  // Detect stale cache entries (cached card IDs not on board)
-  for (const [title, cached] of Object.entries(cache.nodes)) {
-    if (!boardCardIds.has(cached.miroCardId)) {
-      staleCacheEntries.push(title);
+    // Detect stale cache entries (cached card IDs not on board)
+    for (const [title, cached] of Object.entries(cache.nodes)) {
+      if (!boardCardIds.has(cached.miroCardId)) {
+        staleCacheEntries.push(title);
+      }
     }
-  }
 
-  if (staleCacheEntries.length > 0) {
-    if (options.verbose || options.dryRun) {
-      console.log(`Found ${staleCacheEntries.length} stale cache entries (cards deleted from board)`);
-      for (const title of staleCacheEntries) {
-        console.log(`  - "${title}" (will recreate)`);
+    if (staleCacheEntries.length > 0) {
+      if (options.verbose || options.dryRun) {
+        console.log(`Found ${staleCacheEntries.length} stale cache entries (cards deleted from board)`);
+        for (const title of staleCacheEntries) {
+          console.log(`  - "${title}" (will recreate)`);
+        }
       }
     }
   }
@@ -196,7 +223,7 @@ export async function miroSync(spaceOrPath: string, options: SyncOptions): Promi
   }
 
   // Compute positions for new cards
-  const { positions: newPositions } = layoutNewCards(newNodes, existingPositions);
+  const { positions: newPositions } = layoutNewCards(newNodes, existingPositions, levels);
 
   // 7. Create new cards
   let createdCount = 0;
@@ -229,7 +256,7 @@ export async function miroSync(spaceOrPath: string, options: SyncOptions): Promi
         title: buildCardTitle(node),
         description: buildCardDescription(node),
       },
-      style: { cardTheme: getCardColor(type) },
+      style: { cardTheme: getCardColor(type, levels) },
       position: { x: pos.x, y: pos.y, origin: 'center' },
       parent: { id: frameId },
       geometry: { width: CARD_WIDTH },
@@ -278,7 +305,7 @@ export async function miroSync(spaceOrPath: string, options: SyncOptions): Promi
             title: buildCardTitle(node),
             description: buildCardDescription(node),
           },
-          style: { cardTheme: getCardColor(type) },
+          style: { cardTheme: getCardColor(type, levels) },
           position: { x: 0, y: 0, origin: 'center' },
           parent: { id: frameId },
           geometry: { width: CARD_WIDTH },

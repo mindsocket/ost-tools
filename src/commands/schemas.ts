@@ -192,6 +192,12 @@ export function showSchema(file: string | undefined, options: { space?: string; 
 
   if (!existsSync(schemaPath)) {
     console.error(`Schema not found: ${schemaPath}`);
+    console.error('\nHint: Use ./ or / prefix for local paths (e.g. ./schemas/my_schema.json),');
+    console.error("      or use --space to show a space's configured schema.");
+    const matchingSpace = config.spaces.find((s) => s.schema?.includes(file || ''));
+    if (matchingSpace) {
+      console.error(`      Did you mean: --space ${matchingSpace.name}?`);
+    }
     process.exit(1);
   }
 

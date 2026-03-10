@@ -1,15 +1,24 @@
 import { statSync, writeFileSync } from 'node:fs';
+import { buildHierarchyNodeSet, classifyNodes } from '../graph-helpers';
 import { readSpaceDirectory } from '../read-space-directory';
 import { readSpaceOnAPage } from '../read-space-on-a-page';
-import { createValidator } from '../schema';
+import { createValidator, loadMetadata } from '../schema';
 import type { SpaceNode } from '../types';
 
-interface DiagramNode {
-  id: string;
-  type: string;
-  status: string;
-  parents: string[]; // DAG: may have multiple parents
-  priority?: string;
+/**
+ * Escape strings for Mermaid diagram labels.
+ * Replaces quotes with &quot; to prevent parsing errors.
+ */
+function escapeMermaidString(str: string): string {
+  return str.replace(/"/g, '&quot;');
+}
+
+/**
+ * Create a safe node ID for Mermaid diagrams.
+ * Replaces special characters with underscores to prevent parsing errors.
+ */
+function safeNodeId(id: string): string {
+  return id.replace(/[^a-zA-Z0-9_-]/g, '_');
 }
 
 export async function diagram(
@@ -17,6 +26,8 @@ export async function diagram(
   options: { schema: string; output?: string; templateDir?: string },
 ): Promise<void> {
   const validateFunc = createValidator(options.schema);
+  const metadata = loadMetadata(options.schema);
+  const hierarchyLevels = metadata.hierarchy?.levels ?? [];
 
   let spaceNodes: SpaceNode[];
   let skipped: string[] = [];
@@ -34,7 +45,9 @@ export async function diagram(
       templateDir: options.templateDir,
     }));
   }
-  const nodes: DiagramNode[] = [];
+
+  // Validate nodes
+  const validNodes: SpaceNode[] = [];
   const invalid: string[] = [];
 
   for (const node of spaceNodes) {
@@ -43,28 +56,18 @@ export async function diagram(
       invalid.push(node.label);
       continue;
     }
-
-    nodes.push({
-      id: node.schemaData.title as string,
-      type: node.schemaData.type as string,
-      status: node.schemaData.status as string,
-      parents: node.resolvedParents,
-      priority: node.schemaData.priority as string | undefined,
-    });
+    validNodes.push(node);
   }
 
-  // Build node lookup for edge validation
-  const nodeMap = new Map<string, DiagramNode>();
-  for (const node of nodes) {
-    nodeMap.set(node.id, node);
-  }
+  // Classify nodes using the new graph-helpers function
+  const classification = classifyNodes(validNodes, hierarchyLevels);
+  const { hierarchyRoots, orphans, nonHierarchy, children } = classification;
+
+  // Build lookup for all hierarchy nodes (roots + orphans + descendants)
+  const hierarchyNodeSet = buildHierarchyNodeSet(classification);
 
   // Generate mermaid diagram
   let mmd = 'graph TD\n';
-
-  // Find roots (no parents) and orphans
-  const roots = nodes.filter((n) => n.parents.length === 0);
-  const orphans = roots.filter((n) => n.type !== 'vision');
 
   // Add styling
   mmd += '  classDef vision fill:#ff9999,stroke:#ff0000,stroke-width:2px\n';
@@ -82,27 +85,50 @@ export async function diagram(
   mmd += '  classDef completed fill:#ccccff,stroke:#6666cc,stroke-width:2px\n';
   mmd += '  classDef archived fill:#e0e0e0,stroke:#999999,stroke-width:2px\n';
 
-  // Add nodes
-  for (const node of nodes) {
-    const label = node.priority ? `${node.id} (${node.priority})` : node.id;
-    const className = `${node.type}_${node.status}`;
-    mmd += `  "${node.id}"["${label}"]:::${className}\n`;
-  }
+  // Add all hierarchy nodes (roots, orphans, and their children)
+  const addedNodes = new Set<string>();
 
-  // Add edges
-  for (const node of nodes) {
-    for (const parent of node.parents) {
-      if (nodeMap.has(parent)) {
-        mmd += `  "${parent}" --> "${node.id}"\n`;
+  function addNodeAndChildren(node: SpaceNode) {
+    const nodeId = node.schemaData.title as string;
+    if (addedNodes.has(nodeId)) return;
+    addedNodes.add(nodeId);
+
+    const type = node.schemaData.type as string;
+    const status = node.schemaData.status as string;
+    const priority = node.schemaData.priority as string | undefined;
+    const label = priority ? `${nodeId} (${priority})` : nodeId;
+    const className = `${type}_${status}`;
+
+    // Use safe node ID for Mermaid syntax (left side - no quotes)
+    const safeId = safeNodeId(nodeId);
+    // Escape special characters in label (right side - with quotes)
+    const escapedLabel = escapeMermaidString(label);
+
+    mmd += `  ${safeId}["${escapedLabel}"]:::${className}\n`;
+
+    // Add edges to children using the children map
+    const nodeChildren = children.get(nodeId) ?? [];
+    for (const child of nodeChildren) {
+      // Only add edges to hierarchy nodes
+      if (hierarchyNodeSet.has(child.schemaData.title as string)) {
+        const childId = child.schemaData.title as string;
+        const safeChildId = safeNodeId(childId);
+        mmd += `  ${safeId} --> ${safeChildId}\n`;
+        addNodeAndChildren(child);
       }
     }
   }
 
+  // Add hierarchy roots
+  for (const root of hierarchyRoots) {
+    addNodeAndChildren(root);
+  }
+
   // Add orphans as a subgraph
   if (orphans.length > 0) {
-    mmd += '\n  subgraph Orphans [Orphan nodes (no parent)]\n';
+    mmd += '\n  subgraph Orphans\n';
     for (const orphan of orphans) {
-      mmd += `    "${orphan.id}"\n`;
+      addNodeAndChildren(orphan);
     }
     mmd += '  end\n';
   }
@@ -117,8 +143,10 @@ export async function diagram(
 
   // Report stats
   console.error(`\n📊 Diagram Stats:`);
-  console.error(`   Total nodes: ${nodes.length}`);
+  console.error(`   Total hierarchy nodes: ${hierarchyRoots.length + orphans.length}`);
+  console.error(`   Hierarchy roots: ${hierarchyRoots.length}`);
   console.error(`   Orphan nodes: ${orphans.length}`);
+  console.error(`   Non-hierarchy nodes (not rendered): ${nonHierarchy.length}`);
   console.error(`   Skipped: ${skipped.length}`);
   if (nonSpace.length > 0) {
     console.error(`   Non-space (no type field): ${nonSpace.length}`);
