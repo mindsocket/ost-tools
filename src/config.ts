@@ -68,6 +68,11 @@ export function setConfigPath(path: string | undefined): void {
   _spaceSourceFiles.clear(); // Clear cache when config path changes
 }
 
+/** Get all config file paths that were loaded (main config + included configs). */
+export function getConfigSourceFiles(): Set<string> {
+  return new Set(_spaceSourceFiles.values());
+}
+
 export function configPath(): string {
   if (_configPathOverride) {
     return _configPathOverride;

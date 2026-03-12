@@ -20,7 +20,7 @@ interface ValidationResult {
   nonSpace: string[];
 }
 
-export async function validate(path: string, options: { schema: string; templateDir?: string }): Promise<void> {
+export async function validate(path: string, options: { schema: string; templateDir?: string }): Promise<number> {
   const validateFunc = createValidator(options.schema);
 
   let nodes: SpaceNode[];
@@ -245,6 +245,7 @@ export async function validate(path: string, options: { schema: string; template
 
   console.log(`\n`);
 
+  // Return exit code (0 for success, 1 for validation failures)
   if (
     result.nodeErrorCount > 0 ||
     result.refErrors.length > 0 ||
@@ -252,6 +253,7 @@ export async function validate(path: string, options: { schema: string; template
     result.ruleViolations.length > 0 ||
     result.hierarchyViolations.length > 0
   ) {
-    process.exit(1);
+    return 1;
   }
+  return 0;
 }

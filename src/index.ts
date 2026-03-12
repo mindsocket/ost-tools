@@ -1,7 +1,8 @@
 #!/usr/bin/env bun
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import chokidar from 'chokidar';
 import { Command } from 'commander';
 import { diagram } from './commands/diagram';
 import { dump } from './commands/dump';
@@ -10,8 +11,16 @@ import { show } from './commands/show';
 import { listSpaces } from './commands/spaces';
 import { templateSync } from './commands/template-sync';
 import { validate } from './commands/validate';
-import { loadConfig, resolveSchema, resolveSpacePath, resolveTemplateSettings, setConfigPath } from './config';
+import {
+  getConfigSourceFiles,
+  loadConfig,
+  resolveSchema,
+  resolveSpacePath,
+  resolveTemplateSettings,
+  setConfigPath,
+} from './config';
 import { miroSync } from './miro/sync';
+import { bundledSchemasDir } from './schema';
 
 const require = createRequire(import.meta.url);
 const packageJson = require('../package.json');
@@ -33,14 +42,67 @@ program
   .description('Validate space against JSON schema')
   .argument('<space-dir-or-file>', 'Space name, directory path, or space_on_a_page .md file')
   .option('-s, --schema <path>', 'Path to JSON schema file')
-  .action((spaceOrDir, options) => {
+  .option('-w, --watch', 'Watch for changes and re-run validation')
+  .action(async (spaceOrDir, options) => {
     const config = loadConfig();
     const space = config.spaces.find((s) => s.name === spaceOrDir);
-    validate(space?.path ?? resolveSpacePath(spaceOrDir, config), {
-      ...options,
-      schema: resolveSchema(options.schema, config, space),
-      templateDir: space?.templateDir ?? config.templateDir,
-    });
+    const spacePath = space?.path ?? resolveSpacePath(spaceOrDir, config);
+    const schemaPath = resolveSchema(options.schema, config, space);
+    const templateDir = space?.templateDir ?? config.templateDir;
+
+    if (options.watch) {
+      // Watch mode - set up watchers and re-run on changes
+      const configFiles = Array.from(getConfigSourceFiles());
+      const schemaDir = dirname(schemaPath);
+      const schemaDirs = [bundledSchemasDir];
+      if (schemaDir !== bundledSchemasDir) {
+        schemaDirs.push(schemaDir);
+      }
+
+      console.log(`👀 Watching for changes...`);
+      console.log(`   Config files: ${configFiles.join(', ')}`);
+      console.log(`   Schema dirs: ${schemaDirs.join(', ')}`);
+      console.log(`   Space:  ${spacePath}`);
+      console.log(`   Press Ctrl+C to stop\n`);
+
+      // Save cursor position after header (for clearing later)
+      process.stdout.write('\x1b[s');
+
+      let exitCode = await validate(spacePath, { schema: schemaPath, templateDir });
+
+      // Collect paths to watch (all config files, schema dirs, and space path)
+      const watchPaths = [...configFiles, ...schemaDirs, spacePath];
+
+      // Set up watcher
+      const watcher = chokidar.watch(watchPaths, {
+        ignoreInitial: true,
+        awaitWriteFinish: {
+          stabilityThreshold: 100,
+          pollInterval: 50,
+        },
+      });
+
+      watcher.on('change', async (changedPath) => {
+        // Restore cursor to header position and clear everything below
+        process.stdout.write('\x1b[u\x1b[0J');
+        console.log(`🔄 ${changedPath} changed, re-validating...\n`);
+        exitCode = await validate(spacePath, { schema: schemaPath, templateDir });
+      });
+
+      watcher.on('error', (error) => {
+        console.error(`Watcher error: ${error}`);
+      });
+
+      // Keep process alive
+      process.on('SIGINT', () => {
+        console.log('\n\n👋 Stopping watch mode...');
+        watcher.close();
+        process.exit(exitCode);
+      });
+    } else {
+      const exitCode = await validate(spacePath, { schema: schemaPath, templateDir });
+      process.exit(exitCode);
+    }
   });
 
 program
