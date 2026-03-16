@@ -30,7 +30,7 @@
     "@types/bun": "latest",
     "@types/chokidar": "^2.1.7",
     "@types/js-yaml": "^4.0.9",
-    "@types/node": "^25.3.3",
+    "@types/node": "^25.5.0",
     "json-schema-to-ts": "^3.1.1"
   },
   "peerDependencies": {
