@@ -1,9 +1,8 @@
 import { beforeAll, describe, expect, it } from 'bun:test';
 import { join } from 'node:path';
-import { readSpaceDirectory } from '../src/read-space-directory';
-import { readSpaceOnAPage } from '../src/read-space-on-a-page';
-import { resolveHierarchyEdges } from '../src/resolve-hierarchy-edges';
-import { bundledSchemasDir, createValidator } from '../src/schema';
+import { readSpaceDirectory, readSpaceOnAPage } from '../src/read/read-space';
+import { resolveHierarchyEdges } from '../src/read/resolve-hierarchy-edges';
+import { bundledSchemasDir, createValidator } from '../src/schema/schema';
 import type { SpaceNode } from '../src/types';
 import { makeLevel } from './test-helpers';
 

@@ -1,5 +1,5 @@
+import type { RulesMetadata, RuleViolation, SpaceNode } from '../types';
 import { buildEvalContext, evaluateExpression } from './evaluate-rule';
-import type { RulesMetadata, RuleViolation, SpaceNode } from './types';
 
 /**
  * Validate nodes against rules metadata.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
-import { buildEvalContext, evaluateExpression } from '../src/evaluate-rule';
-import type { SpaceNode } from '../src/types';
+import { buildEvalContext, evaluateExpression } from '../../src/schema/evaluate-rule';
+import type { SpaceNode } from '../../src/types';
 
 describe('evaluate-rule', () => {
   describe('evaluateExpression', () => {

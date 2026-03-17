@@ -3,7 +3,7 @@ import type {
   MetadataContractRelationship,
   MetadataContractResolvedRules,
   MetadataContractRule,
-} from './metadata-contract';
+} from './schema/metadata-contract';
 
 export interface HierarchyLevel {
   type: string;

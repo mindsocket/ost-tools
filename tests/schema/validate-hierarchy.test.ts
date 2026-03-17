@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
-import type { SchemaMetadata, SpaceNode } from '../src/types';
-import { validateHierarchyStructure } from '../src/validate-hierarchy';
-import { makeLevel } from './test-helpers';
+import { validateHierarchyStructure } from '../../src/schema/validate-hierarchy';
+import type { SchemaMetadata, SpaceNode } from '../../src/types';
+import { makeLevel } from '../test-helpers';
 
 describe('validate-hierarchy', () => {
   const buildNode = (title: string, type: string, parentTitle?: string): SpaceNode => ({

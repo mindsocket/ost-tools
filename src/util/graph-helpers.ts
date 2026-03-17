@@ -1,4 +1,4 @@
-import type { HierarchyLevel, SpaceNode } from './types';
+import type { HierarchyLevel, SpaceNode } from '../types';
 
 export interface NodeClassification {
   hierarchyRoots: SpaceNode[];

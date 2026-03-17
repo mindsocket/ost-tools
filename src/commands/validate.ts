@@ -1,13 +1,11 @@
-import { statSync } from 'node:fs';
 import type { ErrorObject } from 'ajv';
-import { classifyNodes } from '../graph-helpers';
-import { readSpaceDirectory } from '../read-space-directory';
-import { readSpaceOnAPage } from '../read-space-on-a-page';
-import { buildFullRegistry, createValidator, loadMetadata, readRawSchema } from '../schema';
-import type { HierarchyViolation, RuleViolation, SpaceNode } from '../types';
-import { validateHierarchyWithFields, validateRelationships } from '../validate-hierarchy';
-import { validateRules } from '../validate-rules';
-import { buildTargetIndex } from '../wikilink-utils';
+import { readSpace } from '../read/read-space';
+import { buildTargetIndex } from '../read/wikilink-utils';
+import { buildFullRegistry, createValidator, loadMetadata, readRawSchema } from '../schema/schema';
+import { validateHierarchyWithFields, validateRelationships } from '../schema/validate-hierarchy';
+import { validateRules } from '../schema/validate-rules';
+import type { HierarchyViolation, RuleViolation } from '../types';
+import { classifyNodes } from '../util/graph-helpers';
 import { extractEntityInfo } from './schemas';
 
 interface FormattedError {
@@ -133,22 +131,13 @@ function formatErrors(errors: ErrorObject[], schemaPath: string, nodeData: Recor
 export async function validate(path: string, options: { schema: string; templateDir?: string }): Promise<number> {
   const validateFunc = createValidator(options.schema);
 
-  let nodes: SpaceNode[];
-  let skipped: string[] = [];
-  let nonSpace: string[] = [];
-
-  if (statSync(path).isFile()) {
-    ({ nodes } = readSpaceOnAPage(path, options.schema));
-  } else {
-    ({
-      nodes,
-      skipped,
-      nonSpace: nonSpace,
-    } = await readSpaceDirectory(path, {
-      schemaPath: options.schema,
-      templateDir: options.templateDir,
-    }));
-  }
+  const readResult = await readSpace(path, {
+    schemaPath: options.schema,
+    templateDir: options.templateDir,
+  });
+  const { nodes } = readResult;
+  const skipped = readResult.kind === 'directory' ? readResult.skipped : [];
+  const nonSpace = readResult.kind === 'directory' ? readResult.nonSpace : [];
 
   const result: ValidationResult = {
     validCount: 0,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
+import { buildTargetIndex } from '../src/read/wikilink-utils';
+import { validateRelationships } from '../src/schema/validate-hierarchy';
 import type { SchemaMetadata, SpaceNode } from '../src/types';
-import { validateRelationships } from '../src/validate-hierarchy';
-import { buildTargetIndex } from '../src/wikilink-utils';
 
 function makeNode(title: string, type: string, extra: Record<string, unknown> = {}, linkTargets?: string[]): SpaceNode {
   return {

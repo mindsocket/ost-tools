@@ -1,9 +1,8 @@
-import { statSync, writeFileSync } from 'node:fs';
-import { buildHierarchyNodeSet, classifyNodes } from '../graph-helpers';
-import { readSpaceDirectory } from '../read-space-directory';
-import { readSpaceOnAPage } from '../read-space-on-a-page';
-import { createValidator, loadMetadata } from '../schema';
+import { writeFileSync } from 'node:fs';
+import { readSpace } from '../read/read-space';
+import { createValidator, loadMetadata } from '../schema/schema';
 import type { SpaceNode } from '../types';
+import { buildHierarchyNodeSet, classifyNodes } from '../util/graph-helpers';
 
 /**
  * Escape strings for Mermaid diagram labels.
@@ -29,22 +28,13 @@ export async function diagram(
   const metadata = loadMetadata(options.schema);
   const hierarchyLevels = metadata.hierarchy?.levels ?? [];
 
-  let spaceNodes: SpaceNode[];
-  let skipped: string[] = [];
-  let nonSpace: string[] = [];
-
-  if (statSync(path).isFile()) {
-    ({ nodes: spaceNodes } = readSpaceOnAPage(path, options.schema));
-  } else {
-    ({
-      nodes: spaceNodes,
-      skipped,
-      nonSpace,
-    } = await readSpaceDirectory(path, {
-      schemaPath: options.schema,
-      templateDir: options.templateDir,
-    }));
-  }
+  const readResult = await readSpace(path, {
+    schemaPath: options.schema,
+    templateDir: options.templateDir,
+  });
+  const spaceNodes: SpaceNode[] = readResult.nodes;
+  const skipped = readResult.kind === 'directory' ? readResult.skipped : [];
+  const nonSpace = readResult.kind === 'directory' ? readResult.nonSpace : [];
 
   // Validate nodes
   const validNodes: SpaceNode[] = [];

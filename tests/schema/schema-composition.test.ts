@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'bun:test';
 import { join } from 'node:path';
-import { createValidator, loadMetadata } from '../src/schema';
+import { createValidator, loadMetadata } from '../../src/schema/schema';
 
-const FIXTURES_DIR = join(import.meta.dir, 'fixtures/schema-composition');
+const FIXTURES_DIR = join(import.meta.dir, '..', 'fixtures/schema-composition');
 
 describe('schema composition metadata', () => {
   it('merges metadata across $ref graph in DFS order and applies root metadata last', () => {
     const metadata = loadMetadata(join(FIXTURES_DIR, 'merge-root.json'));
 
-    expect(metadata.hierarchy.levels.map((level) => level.type)).toEqual(['vision', 'goal']);
+    expect(metadata.hierarchy?.levels.map((level) => level.type)).toEqual(['vision', 'goal']);
     expect(metadata.typeAliases).toEqual({
       north_star: 'vision',
       outcome: 'goal',

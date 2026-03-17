@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { OST_TOOLS_DIALECT_META_SCHEMA } from '../src/metadata-contract.js';
+import { OST_TOOLS_DIALECT_META_SCHEMA } from '../src/schema/metadata-contract';
 
 const OUTPUT_PATH = new URL('../schemas/generated/_ost_tools_schema_meta.json', import.meta.url);
 

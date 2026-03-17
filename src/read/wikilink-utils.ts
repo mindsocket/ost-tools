@@ -1,4 +1,4 @@
-import type { SpaceNode } from './types';
+import type { SpaceNode } from '../types';
 
 /**
  * Extract the lookup key from a wikilink string such as:

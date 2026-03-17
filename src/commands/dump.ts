@@ -1,14 +1,13 @@
-import { statSync } from 'node:fs';
 import JSON5 from 'json5';
-import { readSpaceDirectory } from '../read-space-directory';
-import { readSpaceOnAPage } from '../read-space-on-a-page';
+import { readSpace } from '../read/read-space';
 
 export async function dump(path: string) {
-  if (statSync(path).isFile()) {
-    const { nodes, diagnostics } = readSpaceOnAPage(path);
+  const result = await readSpace(path);
+  if (result.kind === 'page') {
+    const { nodes, diagnostics } = result;
     console.log(JSON5.stringify({ nodes, diagnostics }, null, 2));
   } else {
-    const { nodes, skipped, nonSpace: nonOst } = await readSpaceDirectory(path);
-    console.log(JSON5.stringify({ nodes, skipped, nonOst }, null, 2));
+    const { nodes, skipped, nonSpace } = result;
+    console.log(JSON5.stringify({ nodes, skipped, nonSpace }, null, 2));
   }
 }

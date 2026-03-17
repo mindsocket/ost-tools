@@ -3,8 +3,8 @@ import { dirname, join } from 'node:path';
 import type { AnySchemaObject } from 'ajv';
 import JSON5 from 'json5';
 import { loadConfig, resolveSchema } from '../config';
-import { buildFullRegistry, bundledSchemasDir, loadMetadata, readRawSchema } from '../schema';
-import { mergeVariantProperties } from '../schema-refs';
+import { buildFullRegistry, bundledSchemasDir, loadMetadata, readRawSchema } from '../schema/schema';
+import { mergeVariantProperties } from '../schema/schema-refs';
 import type { SchemaMetadata, SchemaWithMetadata } from '../types';
 
 function isBundledPath(schemaPath: string): boolean {

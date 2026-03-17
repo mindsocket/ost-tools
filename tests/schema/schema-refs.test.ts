@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'bun:test';
 import { join } from 'node:path';
 import type { AnySchemaObject, SchemaObject } from 'ajv';
-import { buildFullRegistry, readRawSchema } from '../src/schema';
-import { mergeVariantProperties, resolveRef } from '../src/schema-refs';
+import { buildFullRegistry, readRawSchema } from '../../src/schema/schema';
+import { mergeVariantProperties, resolveRef } from '../../src/schema/schema-refs';
 
-const ROOT_SCHEMA_PATH = join(import.meta.dir, 'fixtures/schema-refs/root.json');
+const ROOT_SCHEMA_PATH = join(import.meta.dir, '..', 'fixtures/schema-refs/root.json');
 
 describe('schema refs', () => {
   it('resolves external refs transitively across multiple files', () => {

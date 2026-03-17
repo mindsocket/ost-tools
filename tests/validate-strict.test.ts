@@ -1,8 +1,7 @@
 import { beforeAll, describe, expect, it } from 'bun:test';
 import { join } from 'node:path';
-import { readSpaceDirectory } from '../src/read-space-directory';
-import { readSpaceOnAPage } from '../src/read-space-on-a-page';
-import { bundledSchemasDir, createValidator } from '../src/schema';
+import { readSpaceDirectory, readSpaceOnAPage } from '../src/read/read-space';
+import { bundledSchemasDir, createValidator } from '../src/schema/schema';
 import type { SpaceNode } from '../src/types';
 
 const STRICT_SCHEMA_PATH = join(bundledSchemasDir, 'strict_ost.json');

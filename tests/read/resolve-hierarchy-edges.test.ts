@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
-import { resolveHierarchyEdges } from '../src/resolve-hierarchy-edges';
-import type { SpaceNode } from '../src/types';
-import { makeLevel } from './test-helpers';
+import { resolveHierarchyEdges } from '../../src/read/resolve-hierarchy-edges';
+import type { SpaceNode } from '../../src/types';
+import { makeLevel } from '../test-helpers';
 
 // Helper to build a test node
 function makeNode(title: string, type: string, extra: Record<string, unknown> = {}, linkTargets?: string[]): SpaceNode {

@@ -1,10 +1,8 @@
-import { statSync } from 'node:fs';
-import { loadConfig, resolveSchema, resolveSpacePath, updateSpaceField } from '../config';
-import { buildHierarchyNodeSet, classifyNodes } from '../graph-helpers';
-import { readSpaceDirectory } from '../read-space-directory';
-import { readSpaceOnAPage } from '../read-space-on-a-page';
-import { loadMetadata } from '../schema';
-import type { SpaceNode } from '../types';
+import { loadConfig, resolveSchema, resolveSpacePath, updateSpaceField } from '../../config';
+import { readSpace } from '../../read/read-space';
+import { loadMetadata } from '../../schema/schema';
+import type { SpaceNode } from '../../types';
+import { buildHierarchyNodeSet, classifyNodes } from '../../util/graph-helpers';
 import { computeMiroCardHash, computeNodeHash, loadCache, saveCache } from './cache';
 import { MiroClient, MiroNotFoundError } from './client';
 import { CARD_WIDTH, layoutNewCards } from './layout';
@@ -52,11 +50,7 @@ export async function miroSync(spaceOrPath: string, options: SyncOptions): Promi
   const resolvedPath = resolveSpacePath(spaceOrPath, config);
   let nodes: SpaceNode[];
 
-  if (statSync(resolvedPath).isFile()) {
-    ({ nodes } = readSpaceOnAPage(resolvedPath));
-  } else {
-    ({ nodes } = await readSpaceDirectory(resolvedPath));
-  }
+  ({ nodes } = await readSpace(resolvedPath));
 
   if (nodes.length === 0) {
     console.log('No space nodes found.');

@@ -3,7 +3,7 @@ import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import Ajv from 'ajv';
 import JSON5 from 'json5';
-import { bundledSchemasDir } from './schema';
+import { bundledSchemasDir } from './schema/schema';
 
 const CONFIG_SCHEMA = {
   type: 'object',

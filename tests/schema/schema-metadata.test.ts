@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'bun:test';
 import { join } from 'node:path';
-import { readSpaceOnAPage } from '../src/read-space-on-a-page';
-import { bundledSchemasDir, createValidator, loadMetadata } from '../src/schema';
+import { readSpaceOnAPage } from '../../src/read/read-space';
+import { bundledSchemasDir, createValidator, loadMetadata } from '../../src/schema/schema';
 
-const FIXTURES_DIR = join(import.meta.dir, 'fixtures/schema-metadata');
+const FIXTURES_DIR = join(import.meta.dir, '..', 'fixtures/schema-metadata');
 const GENERAL_SCHEMA_PATH = join(bundledSchemasDir, 'general.json');
 const VALID_SCHEMA_PATH = join(FIXTURES_DIR, 'valid.json');
 const ALIAS_ONLY_SCHEMA_PATH = join(FIXTURES_DIR, 'alias-only.json');
 const INVALID_SCHEMA_PATH = join(FIXTURES_DIR, 'invalid-metadata.json');
-const ON_A_PAGE_FIXTURE_PATH = join(import.meta.dir, 'fixtures/general/on-a-page-valid.md');
+const ON_A_PAGE_FIXTURE_PATH = join(import.meta.dir, '..', 'fixtures/general/on-a-page-valid.md');
 
 describe('schema metadata', () => {
   it('loads top-level $metadata from bundled schemas', () => {

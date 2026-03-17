@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
-import type { RulesMetadata, SpaceNode } from '../src/types';
-import { validateRules } from '../src/validate-rules';
+import { validateRules } from '../../src/schema/validate-rules';
+import type { RulesMetadata, SpaceNode } from '../../src/types';
 
 describe('validate-rules', () => {
   describe('validateRules', () => {

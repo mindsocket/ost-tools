@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
-import type { SpaceNode } from '../src/types';
-import { buildTargetIndex } from '../src/wikilink-utils';
+import { buildTargetIndex } from '../../src/read/wikilink-utils';
+import type { SpaceNode } from '../../src/types';
 
 /**
  * Helper to build a test node

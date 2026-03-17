@@ -1,10 +1,10 @@
 import { beforeAll, describe, expect, it } from 'bun:test';
 import { join } from 'node:path';
-import { readSpaceDirectory } from '../src/read-space-directory';
-import type { SpaceDirectoryReadResult } from '../src/types';
+import { readSpaceDirectory } from '../../src/read/read-space';
+import type { SpaceDirectoryReadResult } from '../../src/types';
 
-const VALID_DIR = join(import.meta.dir, 'fixtures/general/valid-ost');
-const INVALID_DIR = join(import.meta.dir, 'fixtures/general/invalid-ost');
+const VALID_DIR = join(import.meta.dir, '..', 'fixtures/general/valid-ost');
+const INVALID_DIR = join(import.meta.dir, '..', 'fixtures/general/invalid-ost');
 
 describe('readSpaceDirectory', () => {
   describe('valid-ost directory', () => {
@@ -27,7 +27,7 @@ describe('readSpaceDirectory', () => {
       expect(result.skipped).toContain('no-frontmatter.md');
     });
 
-    it('puts meeting-notes.md in nonOst', () => {
+    it('puts meeting-notes.md in nonSpace', () => {
       expect(result.nonSpace).toContain('meeting-notes.md');
     });
 
@@ -35,7 +35,7 @@ describe('readSpaceDirectory', () => {
       expect(result.nodes.every((n) => n.label !== 'no-frontmatter.md')).toBe(true);
     });
 
-    it('nonOst files do not appear in nodes', () => {
+    it('nonSpace files do not appear in nodes', () => {
       expect(result.nodes.every((n) => n.label !== 'meeting-notes.md')).toBe(true);
     });
 
@@ -51,7 +51,7 @@ describe('readSpaceDirectory', () => {
       expect(result.nodes.every((n) => n.label !== 'Community OST.md')).toBe(true);
     });
 
-    it('Community OST.md does not appear in skipped or nonOst', () => {
+    it('Community OST.md does not appear in skipped or nonSpace', () => {
       expect(result.skipped.includes('Community OST.md')).toBe(false);
       expect(result.nonSpace.includes('Community OST.md')).toBe(false);
     });

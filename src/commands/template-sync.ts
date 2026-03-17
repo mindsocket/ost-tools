@@ -5,9 +5,9 @@ import { glob } from 'glob';
 import matter from 'gray-matter';
 import yaml from 'js-yaml';
 import { invertFieldMap } from '../config';
-import type { MetadataContractRelationship } from '../metadata-contract';
-import { buildFullRegistry, readRawSchema } from '../schema';
-import { mergeVariantProperties, resolveRef } from '../schema-refs';
+import type { MetadataContractRelationship } from '../schema/metadata-contract';
+import { buildFullRegistry, readRawSchema } from '../schema/schema';
+import { mergeVariantProperties, resolveRef } from '../schema/schema-refs';
 import type { SchemaWithMetadata } from '../types';
 
 export interface TypeVariant {

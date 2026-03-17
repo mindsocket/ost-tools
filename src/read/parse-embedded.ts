@@ -4,10 +4,10 @@ import { toString as mdastToString } from 'mdast-util-to-string';
 import remarkGfm from 'remark-gfm';
 import remarkParse from 'remark-parse';
 import { unified } from 'unified';
-import { applyFieldMap } from './config';
-import type { MetadataContractRelationship } from './metadata-contract';
-import { resolveNodeType } from './schema';
-import type { SpaceNode, SpaceOnAPageDiagnostics } from './types';
+import { applyFieldMap } from '../config';
+import type { MetadataContractRelationship } from '../schema/metadata-contract';
+import { resolveNodeType } from '../schema/schema';
+import type { SchemaMetadata, SpaceNode, SpaceOnAPageDiagnostics } from '../types';
 
 /** Type values that identify a space_on_a_page container (not themselves space nodes). */
 export const ON_A_PAGE_TYPES = ['ost_on_a_page', 'space_on_a_page'];
@@ -246,24 +246,13 @@ export interface ExtractEmbeddedOptions {
    *   become nodes with depth-based type inference ("space on a page" behaviour).
    */
   pageType?: string;
-  /**
-   * Hierarchy of node types for depth-based type inference in space-on-a-page mode.
-   */
-  hierarchy: readonly string[];
-  /**
-   * Type aliases mapping (alias -> canonical type) for resolving types.
-   */
-  typeAliases?: Record<string, string>;
+  metadata: SchemaMetadata;
   /**
    * Field name remapping (file field name → canonical field name).
    * Applied to all extracted inline fields, YAML blocks, and paragraph fields.
    * Example: { "record_type": "type" } renames `record_type` to `type` in extracted data.
    */
   fieldMap?: Record<string, string>;
-  /**
-   * Relationship definitions from schema metadata to determine sub-entity types and matcher rules.
-   */
-  relationships?: MetadataContractRelationship[];
 }
 
 export interface ExtractEmbeddedResult {
@@ -274,11 +263,14 @@ export interface ExtractEmbeddedResult {
 /**
  * Extract space nodes from markdown body text.
  *
- * Shared by both readSpaceOnAPage (single space_on_a_page file) and readSpaceDirectory
+ * Used by both readSpaceOnAPage (single space_on_a_page file) and readSpaceDirectory
  * (directory) to find embedded sub-nodes within a page's content.
  */
 export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptions): ExtractEmbeddedResult {
-  const { pageTitle, pageType, hierarchy, typeAliases = {}, fieldMap, relationships = [] } = options;
+  const { pageTitle, pageType, metadata, fieldMap } = options;
+  const hierarchy = metadata.hierarchy?.levels.map((l) => l.type) ?? [];
+  const relationships = metadata.relationships ?? [];
+  const typeAliases = metadata.typeAliases ?? {};
   const isOnAPageMode = pageType === undefined || ON_A_PAGE_TYPES.includes(pageType);
 
   const nodes: SpaceNode[] = [];

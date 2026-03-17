@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import Ajv, { type ValidateFunction } from 'ajv';
 import JSON5 from 'json5';
+import type { HierarchyLevel, RuleCategory, SchemaMetadata } from '../types';
 import {
   type MetadataContract,
   type MetadataContractRelationship,
@@ -14,10 +15,9 @@ import {
   OST_TOOLS_SCHEMA_META_ID,
 } from './metadata-contract';
 import { isObject, resolveJsonPointer } from './schema-refs';
-import type { HierarchyLevel, RuleCategory, SchemaMetadata } from './types';
 
 const packageDir = dirname(fileURLToPath(import.meta.url));
-export const bundledSchemasDir = join(packageDir, '..', 'schemas');
+export const bundledSchemasDir = join(packageDir, '..', '..', 'schemas');
 /** Parsed JSON schema object — always a plain object (never a boolean schema). */
 type JsonSchemaObject = Record<string, unknown>;
 

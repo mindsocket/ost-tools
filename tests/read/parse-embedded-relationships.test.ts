@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'bun:test';
-import type { MetadataContractRelationship } from '../src/metadata-contract';
-import { extractEmbeddedNodes } from '../src/parse-embedded';
+import { extractEmbeddedNodes } from '../../src/read/parse-embedded';
+import type { MetadataContractRelationship } from '../../src/schema/metadata-contract';
+import type { HierarchyLevel } from '../../src/types';
+
+function toHierarchyLevels(types: string[]): HierarchyLevel[] {
+  return types.map((type) => ({ type, field: 'parent', fieldOn: 'child', multiple: false, selfRef: false }));
+}
 
 describe('extractEmbeddedNodes - relationships', () => {
   const hierarchy = ['vision', 'mission', 'goal', 'opportunity', 'solution', 'experiment'];
@@ -30,8 +35,7 @@ describe('extractEmbeddedNodes - relationships', () => {
 
     const { nodes } = extractEmbeddedNodes(body, {
       pageType: 'opportunity',
-      hierarchy,
-      relationships,
+      metadata: { hierarchy: { levels: toHierarchyLevels(hierarchy) }, relationships },
     });
 
     const opp = nodes.find((n) => n.schemaData.type === 'opportunity');
@@ -55,8 +59,7 @@ describe('extractEmbeddedNodes - relationships', () => {
 `;
     const { nodes } = extractEmbeddedNodes(body, {
       pageType: 'opportunity',
-      hierarchy: [...hierarchy, 'assumption'],
-      relationships: [],
+      metadata: { hierarchy: { levels: toHierarchyLevels([...hierarchy, 'assumption']) }, relationships: [] },
     });
 
     const assumptions = nodes.filter((n) => n.schemaData.type === 'assumption');
@@ -83,8 +86,7 @@ Our users are sad.
 `;
     const { nodes } = extractEmbeddedNodes(body, {
       pageType: 'opportunity',
-      hierarchy,
-      relationships,
+      metadata: { hierarchy: { levels: toHierarchyLevels(hierarchy) }, relationships },
     });
 
     const probNodes = nodes.filter((n) => n.schemaData.type === 'problem_statement');
@@ -114,8 +116,7 @@ Our users are sad.
 `;
     const { nodes } = extractEmbeddedNodes(body, {
       pageType: 'opportunity',
-      hierarchy,
-      relationships,
+      metadata: { hierarchy: { levels: toHierarchyLevels(hierarchy) }, relationships },
     });
 
     const solutions = nodes.filter((n) => n.schemaData.type === 'solution');
@@ -149,8 +150,7 @@ Our users are sad.
 
     const { nodes } = extractEmbeddedNodes(body, {
       pageType: 'opportunity',
-      hierarchy,
-      relationships,
+      metadata: { hierarchy: { levels: toHierarchyLevels(hierarchy) }, relationships },
     });
 
     const assumptions = nodes.filter((n) => n.schemaData.type === 'assumption');
@@ -182,8 +182,7 @@ Our users are sad.
 
     const { nodes } = extractEmbeddedNodes(body, {
       pageType: 'opportunity',
-      hierarchy,
-      relationships,
+      metadata: { hierarchy: { levels: toHierarchyLevels(hierarchy) }, relationships },
     });
 
     const assumptions = nodes.filter((n) => n.schemaData.type === 'assumption');
@@ -216,8 +215,7 @@ Our users are sad.
       expect(() =>
         extractEmbeddedNodes(body, {
           pageType: 'opportunity',
-          hierarchy,
-          relationships,
+          metadata: { hierarchy: { levels: toHierarchyLevels(hierarchy) }, relationships },
         }),
       ).toThrow(/Cannot append child link to field 'solutions'.*field exists but is not an array/);
     });
@@ -250,8 +248,7 @@ Our users are sad.
       expect(() =>
         extractEmbeddedNodes(body, {
           pageType: 'opportunity',
-          hierarchy,
-          relationships,
+          metadata: { hierarchy: { levels: toHierarchyLevels(hierarchy) }, relationships },
         }),
       ).toThrow(/Cannot append child link to field 'assumptions'.*field exists but is not an array/);
     });
@@ -280,8 +277,7 @@ Our users are sad.
       expect(() =>
         extractEmbeddedNodes(body, {
           pageType: 'opportunity',
-          hierarchy,
-          relationships,
+          metadata: { hierarchy: { levels: toHierarchyLevels(hierarchy) }, relationships },
         }),
       ).toThrow(/Cannot append child link to field 'count'.*field exists but is not an array/);
     });
@@ -310,8 +306,7 @@ Our users are sad.
 
       const { nodes } = extractEmbeddedNodes(body, {
         pageType: 'opportunity',
-        hierarchy,
-        relationships,
+        metadata: { hierarchy: { levels: toHierarchyLevels(hierarchy) }, relationships },
       });
 
       const opportunity = nodes.find((n) => n.schemaData.type === 'opportunity');
@@ -349,8 +344,7 @@ Our users are sad.
 
       const { nodes } = extractEmbeddedNodes(body, {
         pageType: 'opportunity',
-        hierarchy,
-        relationships,
+        metadata: { hierarchy: { levels: toHierarchyLevels(hierarchy) }, relationships },
       });
 
       const opportunity = nodes.find((n) => n.schemaData.type === 'opportunity');

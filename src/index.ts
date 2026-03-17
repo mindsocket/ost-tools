@@ -19,8 +19,8 @@ import {
   resolveTemplateSettings,
   setConfigPath,
 } from './config';
-import { miroSync } from './miro/sync';
-import { bundledSchemasDir } from './schema';
+import { miroSync } from './integrations/miro/sync';
+import { bundledSchemasDir } from './schema/schema';
 
 const require = createRequire(import.meta.url);
 const packageJson = require('../package.json');

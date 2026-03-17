@@ -1,5 +1,5 @@
 import jsonata from 'jsonata';
-import type { SpaceNode } from './types';
+import type { SpaceNode } from '../types';
 
 const expressionCache = new Map<string, ReturnType<typeof jsonata>>();
 

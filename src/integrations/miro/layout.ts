@@ -1,5 +1,5 @@
-import { buildDepthMap } from '../graph-helpers';
-import type { HierarchyLevel, SpaceNode } from '../types';
+import type { HierarchyLevel, SpaceNode } from '../../types';
+import { buildDepthMap } from '../../util/graph-helpers';
 
 export const CARD_WIDTH = 320;
 const CARD_HEIGHT = 160;

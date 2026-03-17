@@ -1,11 +1,9 @@
-import { statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { loadConfig, resolveSchema } from '../config';
-import { classifyNodes } from '../graph-helpers';
-import { readSpaceDirectory } from '../read-space-directory';
-import { readSpaceOnAPage } from '../read-space-on-a-page';
-import { loadMetadata } from '../schema';
+import { readSpace } from '../read/read-space';
+import { loadMetadata } from '../schema/schema';
 import type { SpaceNode } from '../types';
+import { classifyNodes } from '../util/graph-helpers';
 
 export async function show(path: string) {
   const absolutePath = resolve(path);
@@ -15,12 +13,7 @@ export async function show(path: string) {
   const metadata = loadMetadata(resolvedSchemaPath);
   const levels = metadata.hierarchy?.levels ?? [];
 
-  let nodes: SpaceNode[];
-  if (statSync(absolutePath).isFile()) {
-    ({ nodes } = readSpaceOnAPage(absolutePath));
-  } else {
-    ({ nodes } = await readSpaceDirectory(absolutePath));
-  }
+  const { nodes } = await readSpace(absolutePath);
 
   const { hierarchyRoots, orphans, nonHierarchy, children } = classifyNodes(nodes, levels);
 

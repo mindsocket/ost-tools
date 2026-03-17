@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { normalizeHeadingSectionTarget } from '../src/parse-embedded';
+import { normalizeHeadingSectionTarget } from '../../src/read/parse-embedded';
 
 describe('normalizeHeadingSectionTarget', () => {
   it('matches observed Obsidian bookmark normalization for special separators', () => {

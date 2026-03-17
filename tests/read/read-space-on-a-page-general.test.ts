@@ -1,10 +1,10 @@
 import { beforeAll, describe, expect, it } from 'bun:test';
 import { join } from 'node:path';
-import { readSpaceOnAPage } from '../src/read-space-on-a-page';
-import type { SpaceOnAPageReadResult } from '../src/types';
+import { readSpaceOnAPage } from '../../src/read/read-space';
+import type { SpaceOnAPageReadResult } from '../../src/types';
 
-const VALID_PAGE = join(import.meta.dir, 'fixtures/general/on-a-page-valid.md');
-const SKIP_PAGE = join(import.meta.dir, 'fixtures/general/on-a-page-heading-skip.md');
+const VALID_PAGE = join(import.meta.dir, '..', 'fixtures/general/on-a-page-valid.md');
+const SKIP_PAGE = join(import.meta.dir, '..', 'fixtures/general/on-a-page-heading-skip.md');
 
 describe('readSpaceOnAPage - on-a-page-valid.md (space_on_a_page)', () => {
   let result: SpaceOnAPageReadResult;
@@ -122,7 +122,7 @@ describe('readSpaceOnAPage - on-a-page-valid.md (space_on_a_page)', () => {
 
   describe('typed file rejection', () => {
     it('throws when given a typed node file instead of space_on_a_page', () => {
-      const typedFile = join(import.meta.dir, 'fixtures/general/valid-ost/Personal Vision.md');
+      const typedFile = join(import.meta.dir, '..', 'fixtures/general/valid-ost/Personal Vision.md');
       expect(() => readSpaceOnAPage(typedFile)).toThrow(/Expected a space_on_a_page file/);
     });
   });

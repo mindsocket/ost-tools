@@ -11,17 +11,17 @@ STATUS=0
 echo "🔍 Running pre-stop checks..." >&2
 
 echo "→ Linting (with auto-fix)..." >&2
-if ! bun run lint:fix --error-on-warnings --reporter=summary >&2; then
+if ! bun run --cwd "$CLAUDE_PROJECT_DIR" lint:fix --error-on-warnings --reporter=summary >&2; then
     STATUS=2
 fi
 
 echo "→ Running tests..." >&2
-if ! bun run test --only-failures >&2; then
+if ! bun run --cwd "$CLAUDE_PROJECT_DIR" test --only-failures >&2; then
     STATUS=2
 fi
 
 echo "→ Running build..." >&2
-if ! bun run build >&2; then
+if ! bun run --cwd "$CLAUDE_PROJECT_DIR" build >&2; then
     STATUS=2
 fi
 

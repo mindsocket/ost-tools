@@ -1,5 +1,5 @@
-import type { HierarchyViolation, SchemaMetadata, SpaceNode } from './types';
-import { buildTargetIndex, wikilinkToTarget } from './wikilink-utils';
+import { buildTargetIndex, wikilinkToTarget } from '../read/wikilink-utils';
+import type { HierarchyViolation, SchemaMetadata, SpaceNode } from '../types';
 
 export interface HierarchyValidationResult {
   violations: HierarchyViolation[];

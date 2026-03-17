@@ -1,4 +1,4 @@
-import type { HierarchyLevel, SpaceNode } from '../types';
+import type { HierarchyLevel, SpaceNode } from '../../types';
 
 // Color palette for hierarchy levels (distinct, visually appealing colors)
 const COLOR_PALETTE = [
