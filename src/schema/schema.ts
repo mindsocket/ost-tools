@@ -7,12 +7,12 @@ import JSON5 from 'json5';
 import type { HierarchyLevel, RuleCategory, SchemaMetadata } from '../types';
 import {
   type MetadataContract,
-  type MetadataContractRelationship,
-  type MetadataContractRule,
-  type MetadataContractRuleEntry,
   OST_TOOLS_DIALECT_META_SCHEMA,
   OST_TOOLS_METADATA_SCHEMA,
   OST_TOOLS_SCHEMA_META_ID,
+  type Relationship,
+  type Rule,
+  type RuleEntry,
 } from './metadata-contract';
 import { isObject, resolveJsonPointer } from './schema-refs';
 
@@ -221,7 +221,7 @@ function isRuleRefEntry(value: unknown): value is { $ref: string } {
   return typeof value.$ref === 'string' && value.$ref.length > 0 && Object.keys(value).length === 1;
 }
 
-function isMetadataRule(value: unknown): value is MetadataContractRule {
+function isMetadataRule(value: unknown): value is Rule {
   if (!isObject(value)) return false;
   const record = value as Record<string, unknown>;
 
@@ -242,11 +242,11 @@ function isMetadataRule(value: unknown): value is MetadataContractRule {
 }
 
 function resolveRuleEntries(
-  ruleEntry: MetadataContractRuleEntry,
+  ruleEntry: RuleEntry,
   provider: MetadataProvider,
   registry: Map<string, JsonSchemaObject>,
   stack: Set<string>,
-): MetadataContractRule[] {
+): Rule[] {
   if (isMetadataRule(ruleEntry)) {
     return [ruleEntry];
   }
@@ -268,8 +268,8 @@ function resolveRuleEntries(
   try {
     const value = target.value;
 
-    const resolveArray = (arr: unknown[]): MetadataContractRule[] => {
-      const resolvedRules: MetadataContractRule[] = [];
+    const resolveArray = (arr: unknown[]): Rule[] => {
+      const resolvedRules: Rule[] = [];
       for (const child of arr) {
         if (!isObject(child)) {
           throw new Error(
@@ -277,12 +277,7 @@ function resolveRuleEntries(
           );
         }
         resolvedRules.push(
-          ...resolveRuleEntries(
-            child as MetadataContractRuleEntry,
-            { ...provider, schema: target.rootSchema },
-            registry,
-            stack,
-          ),
+          ...resolveRuleEntries(child as RuleEntry, { ...provider, schema: target.rootSchema }, registry, stack),
         );
       }
       return resolvedRules;
@@ -303,12 +298,7 @@ function resolveRuleEntries(
     }
 
     if (isObject(value)) {
-      return resolveRuleEntries(
-        value as MetadataContractRuleEntry,
-        { ...provider, schema: target.rootSchema },
-        registry,
-        stack,
-      );
+      return resolveRuleEntries(value as RuleEntry, { ...provider, schema: target.rootSchema }, registry, stack);
     }
 
     throw new Error(
@@ -319,12 +309,12 @@ function resolveRuleEntries(
   }
 }
 
-function normalizeRule(rule: MetadataContractRule): MetadataContractRule {
+function normalizeRule(rule: Rule): Rule {
   const { override, ...normalized } = rule;
   return normalized;
 }
 
-function areRulesEquivalent(left: MetadataContractRule, right: MetadataContractRule): boolean {
+function areRulesEquivalent(left: Rule, right: Rule): boolean {
   return isDeepStrictEqual(normalizeRule(left), normalizeRule(right));
 }
 
@@ -336,8 +326,8 @@ export function loadMetadata(schemaPath: string): SchemaMetadata {
   let hierarchyProvider: string | undefined;
   let mergedHierarchy: MetadataContract['hierarchy'] | undefined;
   const mergedAliases: Record<string, string> = {};
-  const mergedRules = new Map<string, { providerId: string; rule: MetadataContractRule }>();
-  const mergedRelationships: MetadataContractRelationship[] = [];
+  const mergedRules = new Map<string, { providerId: string; rule: Rule }>();
+  const mergedRelationships: Relationship[] = [];
 
   for (const provider of metadataProviders) {
     if (provider.metadata.hierarchy) {
@@ -396,6 +386,9 @@ export function loadMetadata(schemaPath: string): SchemaMetadata {
       multiple: entry.multiple ?? false,
       selfRef,
       selfRefField: entry.selfRefField,
+      templateFormat: entry.templateFormat,
+      matchers: entry.matchers,
+      embeddedTemplateFields: entry.embeddedTemplateFields,
     };
   });
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import { validateRules } from '../../src/schema/validate-rules';
-import type { RulesMetadata, SpaceNode } from '../../src/types';
+import type { Rule, SpaceNode } from '../../src/types';
 import { makeParentRef } from '../test-helpers';
 
 describe('validate-rules', () => {
@@ -69,7 +69,7 @@ describe('validate-rules', () => {
     ];
 
     describe('validation rules', () => {
-      const validationRules: RulesMetadata = [
+      const validationRules: Rule[] = [
         {
           id: 'solution-parent-type',
           category: 'validation',
@@ -143,7 +143,7 @@ describe('validate-rules', () => {
     });
 
     describe('best-practice rules', () => {
-      const bestPracticeRules: RulesMetadata = [
+      const bestPracticeRules: Rule[] = [
         {
           id: 'solution-quantity',
           category: 'best-practice',
@@ -218,7 +218,7 @@ describe('validate-rules', () => {
     });
 
     describe('workflow rules', () => {
-      const workflowRules: RulesMetadata = [
+      const workflowRules: Rule[] = [
         {
           id: 'active-outcome-count',
           category: 'workflow',
@@ -326,7 +326,7 @@ describe('validate-rules', () => {
     });
 
     describe('mixed categories', () => {
-      const mixedRules: RulesMetadata = [
+      const mixedRules: Rule[] = [
         {
           id: 'solution-parent-type',
           category: 'validation',

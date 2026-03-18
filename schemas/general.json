@@ -23,14 +23,14 @@
       {
         "parent": "opportunity",
         "type": "problem_statement",
-        "format": "heading",
+        "templateFormat": "heading",
         "matchers": ["Problem statement", "What problem are we solving?"],
         "multiple": false
       },
       {
         "parent": "opportunity",
         "type": "assumption",
-        "format": "table",
+        "templateFormat": "table",
         "matchers": ["Assumptions", "^Assumptions?$"],
         "embeddedTemplateFields": ["assumption", "status", "confidence"],
         "multiple": true

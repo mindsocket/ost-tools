@@ -20,7 +20,7 @@ describe('validateGraph - Relationships', () => {
       {
         parent: 'opportunity',
         type: 'assumption',
-        format: 'table',
+        templateFormat: 'table',
       },
     ],
   } as SchemaMetadata;

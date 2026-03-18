@@ -1,26 +1,25 @@
 import type { SchemaObject } from 'ajv';
-import type {
-  MetadataContractRelationship,
-  MetadataContractResolvedRules,
-  MetadataContractRule,
-} from './schema/metadata-contract';
+import type { MetadataContractHierarchyLevel, Relationship, Rule, SharedEdgeFields } from './schema/metadata-contract';
 
-export interface EdgeDefinition {
+/**
+ * Minimal normalized edge for graph resolution.
+ * Derives routing fields from SharedEdgeFields to stay in sync with the schema.
+ */
+export interface EdgeDefinition extends Required<Pick<SharedEdgeFields, 'field' | 'fieldOn' | 'multiple'>> {
   type: string;
   parent: string;
-  field: string; // default "parent"
-  fieldOn: 'child' | 'parent'; // default "child"
-  multiple: boolean; // default false
 }
 
-export interface HierarchyLevel {
-  type: string;
-  field: string; // default "parent"
-  fieldOn: 'child' | 'parent'; // default "child" - "parent" means the parent node has the field pointing to children
-  multiple: boolean; // default false - when true, field is an array of wikilinks
-  selfRef: boolean; // default false - when true, a node of this type may have a parent of the same type
-  selfRefField?: string; // optional field for same-type parent relationships (implies selfRef: true)
-}
+/**
+ * Normalized hierarchy level — all edge fields are required after schema.ts normalization.
+ * The raw schema input type is MetadataContractHierarchyLevel (optional fields).
+ */
+export type HierarchyLevel = Omit<MetadataContractHierarchyLevel, 'field' | 'fieldOn' | 'multiple' | 'selfRef'> & {
+  field: string;
+  fieldOn: 'child' | 'parent';
+  multiple: boolean;
+  selfRef: boolean;
+};
 
 /**
  * A resolved parent reference, capturing not just the parent title but the edge context
@@ -76,9 +75,7 @@ export interface SpaceDirectoryReadResult {
 /** Rule categories for organizing executable validation rules */
 export type RuleCategory = 'validation' | 'coherence' | 'workflow' | 'best-practice';
 
-/** A single executable rule with JSONata check expression */
-export type Rule = MetadataContractRule;
-export type RulesMetadata = MetadataContractResolvedRules;
+export type { Rule } from './schema/metadata-contract';
 
 export interface RuleViolation {
   file: string;
@@ -102,8 +99,8 @@ export interface SchemaMetadata {
     allowSkipLevels?: boolean;
   };
   typeAliases?: Record<string, string>;
-  rules?: RulesMetadata;
-  relationships?: MetadataContractRelationship[];
+  rules?: Rule[];
+  relationships?: Relationship[];
 }
 
 export interface SchemaWithMetadata extends SchemaObject {

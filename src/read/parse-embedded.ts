@@ -5,9 +5,9 @@ import remarkGfm from 'remark-gfm';
 import remarkParse from 'remark-parse';
 import { unified } from 'unified';
 import { applyFieldMap } from '../config';
-import type { MetadataContractRelationship } from '../schema/metadata-contract';
+import type { Relationship, SharedEmbeddingFields } from '../schema/metadata-contract';
 import { resolveNodeType } from '../schema/schema';
-import type { SchemaMetadata, SpaceNode, SpaceOnAPageDiagnostics } from '../types';
+import type { EdgeDefinition, HierarchyLevel, SchemaMetadata, SpaceNode, SpaceOnAPageDiagnostics } from '../types';
 
 /** Type values that identify a space_on_a_page container (not themselves space nodes). */
 export const ON_A_PAGE_TYPES = ['ost_on_a_page', 'space_on_a_page'];
@@ -23,9 +23,62 @@ export interface StackEntry {
   refTarget: string;
 }
 
-/** Internal unified match result for both hierarchy and relationships. */
-interface UnifiedMatch extends MetadataContractRelationship {
-  isHierarchy: boolean;
+/**
+ * Normalized embedding definition — works for both hierarchy levels and relationships.
+ * Extends EdgeDefinition (required routing fields + type/parent) and SharedEmbeddingFields
+ * (optional templateFormat/matchers/embeddedTemplateFields), so changes to those shared
+ * schema props automatically flow here without manual wiring.
+ */
+interface EmbeddingDefinition extends EdgeDefinition, SharedEmbeddingFields {
+  templateFormat: NonNullable<SharedEmbeddingFields['templateFormat']>;
+  source: 'hierarchy' | 'relationship';
+}
+
+/** Active grouping context — replaces ad-hoc pendingMatch. */
+interface GroupingState {
+  definition: EmbeddingDefinition;
+  semanticParent: { ref: string | undefined; node: SpaceNode | undefined };
+  headingNode: SpaceNode;
+  emitted: boolean;
+}
+
+/** Detect a bare wikilink `[[...]]` and return the inner target, or undefined. */
+export function isWikilink(text: string): string | undefined {
+  const match = text.match(/^\[\[(.+?)\]\]$/);
+  return match ? match[1] : undefined;
+}
+
+/** Evaluate a list of matchers against a heading title. */
+function matchesPattern(title: string, lowerTitle: string, matchers: string[]): boolean {
+  for (const matcher of matchers) {
+    if (matcher.startsWith('^') && matcher.endsWith('$')) {
+      if (new RegExp(matcher, 'i').test(title)) return true;
+    } else if (matcher.startsWith('/') && matcher.endsWith('/')) {
+      if (new RegExp(matcher.slice(1, -1), 'i').test(title)) return true;
+    } else if (lowerTitle === matcher.toLowerCase()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Append a wikilink reference to a field array on a node.
+ * Creates the array if missing; throws if the field exists but is not an array.
+ */
+function appendParentField(parentNode: SpaceNode, field: string, linkRef: string): void {
+  const fieldValue = parentNode.schemaData[field];
+  if (fieldValue === undefined) {
+    parentNode.schemaData[field] = [linkRef];
+  } else if (Array.isArray(fieldValue)) {
+    fieldValue.push(linkRef);
+  } else {
+    throw new Error(
+      `Cannot append child link to field '${field}' on node '${parentNode.label}': ` +
+        `field exists but is not an array (found ${typeof fieldValue}). ` +
+        `Child link: ${linkRef}`,
+    );
+  }
 }
 
 /** Extract [key:: value] bracketed inline fields, return cleaned text and fields. */
@@ -92,7 +145,7 @@ export function extractAnchor(text: string): { cleanText: string; anchor?: strin
 export function anchorToNodeType(
   anchor: string,
   hierarchy: readonly string[],
-  relationships?: MetadataContractRelationship[],
+  relationships?: Relationship[],
 ): string | undefined {
   for (const type of hierarchy) {
     if (anchor === type || new RegExp(`^${type}\\d+$`).test(anchor)) {
@@ -156,6 +209,7 @@ function processListItem(
   fieldMap?: Record<string, string>,
   pendingType?: string,
   parentFieldAppend?: { node: SpaceNode; field: string },
+  activeNodeFieldAppend?: { node: SpaceNode; field: string },
 ): void {
   const firstPara = item.children.find((c) => c.type === 'paragraph') as Paragraph | undefined;
 
@@ -165,6 +219,22 @@ function processListItem(
   }
 
   const rawText = mdastToString(firstPara);
+
+  // Wikilink detection: bare wikilinks populate a field without creating a node
+  const wikiTarget = isWikilink(rawText.trim());
+  if (wikiTarget) {
+    const linkRef = `[[${wikiTarget}]]`;
+    if (parentFieldAppend) {
+      appendParentField(parentFieldAppend.node, parentFieldAppend.field, linkRef);
+      return;
+    }
+    if (activeNodeFieldAppend) {
+      appendParentField(activeNodeFieldAppend.node, activeNodeFieldAppend.field, linkRef);
+      return;
+    }
+    // No field append context — fall through to node creation or content append
+  }
+
   const { cleanText, fields: rawFields } = extractBracketedFields(rawText);
   const fields = applyFieldMap(rawFields, fieldMap) as Record<string, string>;
 
@@ -195,24 +265,7 @@ function processListItem(
     nodes.push(newNode);
 
     if (parentFieldAppend) {
-      const linkRef = `[[${linkTargets[0] ?? title}]]`;
-      const fieldName = parentFieldAppend.field;
-      const fieldValue = parentFieldAppend.node.schemaData[fieldName];
-
-      if (fieldValue === undefined) {
-        // Field doesn't exist yet - create new array
-        parentFieldAppend.node.schemaData[fieldName] = [linkRef];
-      } else if (Array.isArray(fieldValue)) {
-        // Field is already an array - append to it
-        fieldValue.push(linkRef);
-      } else {
-        // Field exists but is not an array - this is an error
-        throw new Error(
-          `Cannot append child link to field '${fieldName}' on node '${parentFieldAppend.node.label}': ` +
-            `field exists but is not an array (found ${typeof fieldValue}). ` +
-            `Child link: ${linkRef}`,
-        );
-      }
+      appendParentField(parentFieldAppend.node, parentFieldAppend.field, `[[${linkTargets[0] ?? title}]]`);
     }
 
     const nestedParentRef = `[[${linkTargets[0] ?? title}]]`;
@@ -307,50 +360,106 @@ export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptio
     terminatedHeadings: [],
   };
 
-  function getParentContextType(): string | undefined {
+  /**
+   * Returns the nearest typed parent context, skipping stack entries at depth >= headingDepth
+   * so that sibling headings don't masquerade as parents.
+   */
+  function getParentContextType(headingDepth?: number): string | undefined {
     for (let i = stack.length - 1; i >= 0; i--) {
-      if (stack[i]!.nodeType) return stack[i]!.nodeType;
+      const entry = stack[i]!;
+      if (headingDepth !== undefined && entry.depth >= headingDepth) continue;
+      if (entry.nodeType) return entry.nodeType;
     }
     return undefined;
   }
 
-  function matchUnified(title: string, parentType: string | undefined): UnifiedMatch | undefined {
+  /** Convert a relationship definition to a normalised EmbeddingDefinition. */
+  function relationshipToEmbedding(rel: Relationship): EmbeddingDefinition {
+    return {
+      parent: rel.parent,
+      type: rel.type,
+      field: rel.field ?? 'parent',
+      fieldOn: rel.fieldOn === 'parent' ? 'parent' : 'child',
+      multiple: rel.multiple ?? false,
+      templateFormat: (rel.templateFormat as EmbeddingDefinition['templateFormat']) ?? 'heading',
+      source: 'relationship',
+      matchers: rel.matchers,
+      embeddedTemplateFields: rel.embeddedTemplateFields,
+    };
+  }
+
+  /** Convert a hierarchy level to a normalised EmbeddingDefinition for child-level matching. */
+  function hierarchyLevelToEmbedding(level: HierarchyLevel, parentType: string): EmbeddingDefinition {
+    return {
+      parent: parentType,
+      type: level.type,
+      field: level.field,
+      fieldOn: level.fieldOn,
+      multiple: level.multiple,
+      templateFormat: level.templateFormat ?? 'heading',
+      source: 'hierarchy',
+      matchers: level.matchers,
+      embeddedTemplateFields: level.embeddedTemplateFields,
+    };
+  }
+
+  /**
+   * Attempt to match a heading title to an embedding definition given the parent context type.
+   *
+   * Priority:
+   * 1. Relationships (explicit matchers or type name fallback)
+   * 2. Hierarchy child level (next level in hierarchy, using matchers or type name)
+   * 3. Hierarchy parent-level matching (immediate parent type — populates current node's field)
+   */
+  function matchEmbedding(title: string, parentType: string | undefined): EmbeddingDefinition | undefined {
     if (!parentType) return undefined;
     const lowerTitle = title.toLowerCase();
 
     // 1. Check relationships first (explicit matches)
     for (const rel of relationships) {
       if (rel.parent === parentType) {
-        for (const matcher of rel.matchers || []) {
-          if (matcher.startsWith('^') && matcher.endsWith('$')) {
-            if (new RegExp(matcher, 'i').test(title)) return { ...rel, isHierarchy: false };
-          } else if (matcher.startsWith('/') && matcher.endsWith('/')) {
-            const pattern = matcher.slice(1, -1);
-            if (new RegExp(pattern, 'i').test(title)) return { ...rel, isHierarchy: false };
-          } else if (lowerTitle === matcher.toLowerCase()) {
-            return { ...rel, isHierarchy: false };
-          }
+        if (rel.matchers && matchesPattern(title, lowerTitle, rel.matchers)) {
+          return relationshipToEmbedding(rel);
         }
         if (lowerTitle === rel.type.toLowerCase()) {
-          return { ...rel, isHierarchy: false }; // fallback implicit match
+          return relationshipToEmbedding(rel); // fallback implicit match
         }
       }
     }
 
-    // 2. Check hierarchy (implicit matches)
+    // 2. Check hierarchy child level matching
     const parentIdx = hierarchy.indexOf(parentType);
     if (parentIdx !== -1 && parentIdx < hierarchy.length - 1) {
-      const nextType = hierarchy[parentIdx + 1]!;
-      const level = levels[parentIdx + 1]!;
-      if (lowerTitle === nextType.toLowerCase()) {
+      const nextLevel = levels[parentIdx + 1]!;
+      if (nextLevel.matchers && matchesPattern(title, lowerTitle, nextLevel.matchers)) {
+        return hierarchyLevelToEmbedding(nextLevel, parentType);
+      }
+      if (lowerTitle === nextLevel.type.toLowerCase()) {
+        return hierarchyLevelToEmbedding(nextLevel, parentType);
+      }
+    }
+
+    // 3. Check parent-level matching: immediate parent type referenced from current node.
+    // e.g. if parentType is 'application' and heading is 'capabilities', match using
+    // the 'application' level's own field definition.
+    if (parentIdx > 0) {
+      const immediateParentLevel = levels[parentIdx - 1]!;
+      const matchesByMatchers = immediateParentLevel.matchers
+        ? matchesPattern(title, lowerTitle, immediateParentLevel.matchers)
+        : false;
+      const matchesByType = lowerTitle === immediateParentLevel.type.toLowerCase();
+
+      if (matchesByMatchers || matchesByType) {
+        const currentLevel = levels[parentIdx]!;
         return {
           parent: parentType,
-          type: nextType,
-          field: level.field,
-          fieldOn: level.fieldOn,
-          multiple: level.multiple,
-          format: 'heading', // Default for hierarchy
-          isHierarchy: true,
+          type: immediateParentLevel.type,
+          field: currentLevel.field,
+          fieldOn: currentLevel.fieldOn,
+          multiple: currentLevel.multiple,
+          templateFormat: currentLevel.templateFormat ?? 'list',
+          source: 'hierarchy',
+          matchers: immediateParentLevel.matchers,
         };
       }
     }
@@ -374,6 +483,34 @@ export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptio
       return `[[${entry.refTarget}]]`;
     }
     return undefined;
+  }
+
+  /**
+   * Walk the stack from the second-to-last entry backwards to find the deepest typed node.
+   * Must be called AFTER the new heading is pushed to the stack so stack[-2] is its parent.
+   */
+  function resolveSemanticParent(): { ref: string | undefined; node: SpaceNode | undefined } {
+    for (let i = stack.length - 2; i >= 0; i--) {
+      if (stack[i]!.nodeType !== '') {
+        const refTarget = stack[i]!.refTarget;
+        return {
+          ref: `[[${refTarget}]]`,
+          node: nodes.find((n) => n.linkTargets.includes(refTarget)),
+        };
+      }
+    }
+    return { ref: undefined, node: undefined };
+  }
+
+  /**
+   * Emit the grouping heading node if not already emitted.
+   */
+  function flushGrouping(g: GroupingState): SpaceNode {
+    if (!g.emitted) {
+      nodes.push(g.headingNode);
+      g.emitted = true;
+    }
+    return g.headingNode;
   }
 
   function buildHeadingLinkTargets(rawHeadingText: string, title: string, anchor?: string): string[] {
@@ -401,8 +538,8 @@ export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptio
     return normalized ? [`${pageTitle}#${normalized}`] : [title];
   }
 
-  let pendingMatch: UnifiedMatch | undefined;
-  let currentActiveNode: SpaceNode = rootNode;
+  let grouping: GroupingState | null = null;
+  let activeNode: SpaceNode = rootNode;
 
   for (const child of tree.children) {
     if (parseState === 'done') {
@@ -432,18 +569,19 @@ export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptio
       const inlineFields = applyFieldMap(rawInlineFields, fieldMap) as Record<string, string>;
       const { cleanText: title, anchor } = extractAnchor(afterBracketed);
 
-      const parentContextType = getParentContextType();
+      const parentContextType = getParentContextType(depth);
       const anchorType = anchor ? anchorToNodeType(anchor, hierarchy, relationships) : undefined;
-      const unifiedMatch = matchUnified(title, parentContextType);
+      const embeddingMatch = matchEmbedding(title, parentContextType);
       const hasExplicitType = !!inlineFields.type;
-      const hasImpliedType = !!anchorType || !!unifiedMatch;
+      const hasImpliedType = !!anchorType || !!embeddingMatch;
 
       if (!isOnAPageMode && !hasExplicitType && !hasImpliedType) {
         while (stack.length > 0 && stack[stack.length - 1]!.depth >= depth) {
           stack.pop();
         }
         stack.push({ depth, title, nodeType: '', refTarget: title });
-        pendingMatch = undefined;
+        // Discard any pending grouping (untyped heading has no implied type)
+        grouping = null;
         continue;
       }
 
@@ -458,7 +596,7 @@ export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptio
         stack.pop();
       }
 
-      const type = inlineFields.type ?? anchorType ?? unifiedMatch?.type ?? defaultNodeType(stack, hierarchy);
+      const type = inlineFields.type ?? anchorType ?? embeddingMatch?.type ?? defaultNodeType(stack, hierarchy);
       const parentRef = currentParentRef();
 
       const schemaData: Record<string, unknown> = {
@@ -478,65 +616,74 @@ export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptio
         resolvedType: resolveNodeType(type, typeAliases),
       };
 
-      // If this match came from a relationship/hierarchy and no explicit type was given,
-      // delay adding the node until we see the following content (agnostic parsing).
-      if (!hasExplicitType && !anchorType && unifiedMatch) {
-        pendingMatch = unifiedMatch;
-        currentActiveNode = headingNode;
-      } else {
-        nodes.push(headingNode);
-        currentActiveNode = headingNode;
-        pendingMatch = undefined;
-      }
-
+      // Push to stack BEFORE resolving semantic parent — stack[-2] is the correct parent.
       const refTarget = linkTargets[0] ?? title;
       stack.push({ depth, title, nodeType: type, refTarget });
+
+      // If this match came from a relationship/hierarchy and no explicit type was given,
+      // create a grouping — delay adding the node until we see the following content.
+      // Discard any previous grouping (not flushed — original agnostic-parse behaviour).
+      if (!hasExplicitType && !anchorType && embeddingMatch) {
+        grouping = {
+          definition: embeddingMatch,
+          semanticParent: resolveSemanticParent(),
+          headingNode,
+          emitted: false,
+        };
+        activeNode = headingNode;
+      } else {
+        // Explicit type or anchor type: discard any pending grouping and emit immediately.
+        grouping = null;
+        nodes.push(headingNode);
+        activeNode = headingNode;
+      }
     } else if (parseState !== 'active') {
       diagnostics.preambleNodeCount++;
     } else if (child.type === 'list') {
       const parentRef = currentParentRef();
       const list = child as List;
 
-      if (pendingMatch) {
-        // Grandparent is the true semantic parent for relationship-driven items
-        let semanticParentRef = parentRef;
-        let semanticParentNode: SpaceNode | undefined;
-        for (let i = stack.length - 2; i >= 0; i--) {
-          if (stack[i]!.nodeType !== '') {
-            semanticParentRef = `[[${stack[i]!.refTarget}]]`;
-            const refTarget = stack[i]!.refTarget;
-            semanticParentNode = nodes.find((n) => n.linkTargets.includes(refTarget));
-            break;
-          }
-        }
+      if (grouping) {
+        const { definition, semanticParent } = grouping;
+        const isParentSide = definition.fieldOn === 'parent';
 
-        const isParentSide = pendingMatch.fieldOn === 'parent';
-        const parentFieldAppend =
-          isParentSide && semanticParentNode && pendingMatch.field
-            ? { node: semanticParentNode, field: pendingMatch.field }
+        const parentFieldAppendArg =
+          isParentSide && semanticParent.node ? { node: semanticParent.node, field: definition.field } : undefined;
+
+        // Parent-level match: definition.type is an ancestor of definition.parent in hierarchy.
+        // e.g. definition.type='capabilities', definition.parent='application' → capabilities is above application.
+        const typeIdx = hierarchy.indexOf(definition.type);
+        const parentIdx = hierarchy.indexOf(definition.parent);
+        const isParentLevelMatch =
+          definition.source === 'hierarchy' && typeIdx !== -1 && parentIdx !== -1 && typeIdx < parentIdx;
+
+        const activeNodeFieldAppendArg =
+          isParentLevelMatch && semanticParent.node
+            ? { node: semanticParent.node, field: definition.field }
             : undefined;
 
         for (const item of list.children) {
           processListItem(
             item,
-            isParentSide ? undefined : semanticParentRef,
-            currentActiveNode,
+            isParentSide ? undefined : semanticParent.ref,
+            grouping.headingNode,
             nodes,
             makeLabel,
             buildListItemLinkTargets,
             typeAliases,
             fieldMap,
-            pendingMatch.type,
-            parentFieldAppend,
+            definition.type,
+            parentFieldAppendArg,
+            activeNodeFieldAppendArg,
           );
         }
-        pendingMatch = undefined;
+        grouping = null;
       } else {
         for (const item of list.children) {
           processListItem(
             item,
             parentRef,
-            currentActiveNode,
+            activeNode,
             nodes,
             makeLabel,
             buildListItemLinkTargets,
@@ -557,7 +704,7 @@ export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptio
         const firstColName = columnNames[0]?.toLowerCase();
 
         let rowTypeStr: string | undefined;
-        let activeMatch = pendingMatch;
+        let activeMatch: EmbeddingDefinition | undefined = grouping?.definition;
 
         if (activeMatch) {
           rowTypeStr = activeMatch.type;
@@ -565,7 +712,7 @@ export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptio
           if (hierarchy.includes(firstColName) || typeAliases[firstColName]) {
             rowTypeStr = firstColName;
           } else {
-            const rootRel = matchUnified(firstColName, parentContextType);
+            const rootRel = matchEmbedding(firstColName, parentContextType);
             if (rootRel) {
               rowTypeStr = rootRel.type;
               activeMatch = rootRel;
@@ -573,8 +720,8 @@ export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptio
           }
         }
 
-        if (!rowTypeStr && currentActiveNode !== rootNode && currentActiveNode.schemaData.type) {
-          const contextAsParentRel = matchUnified(firstColName || '', currentActiveNode.schemaData.type as string);
+        if (!rowTypeStr && activeNode !== rootNode && activeNode.schemaData.type) {
+          const contextAsParentRel = matchEmbedding(firstColName || '', activeNode.schemaData.type as string);
           if (contextAsParentRel) {
             rowTypeStr = contextAsParentRel.type;
             activeMatch = contextAsParentRel;
@@ -584,7 +731,11 @@ export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptio
         if (rowTypeStr) {
           let semanticParentRef = parentRef;
           let semanticParentNode: SpaceNode | undefined;
-          if (activeMatch || rowTypeStr === parentContextType) {
+          if (grouping) {
+            // Use already-resolved semantic parent from grouping
+            semanticParentRef = grouping.semanticParent.ref;
+            semanticParentNode = grouping.semanticParent.node;
+          } else if (activeMatch || rowTypeStr === parentContextType) {
             for (let i = stack.length - 2; i >= 0; i--) {
               if (stack[i]!.nodeType !== '') {
                 semanticParentRef = `[[${stack[i]!.refTarget}]]`;
@@ -637,37 +788,24 @@ export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptio
             nodes.push(rowNode);
 
             if (tableParentFieldAppend) {
-              const linkRef = `[[${linkTargets[0] ?? title}]]`;
-              const fieldName = tableParentFieldAppend.field;
-              const fieldValue = tableParentFieldAppend.node.schemaData[fieldName];
-
-              if (fieldValue === undefined) {
-                // Field doesn't exist yet - create new array
-                tableParentFieldAppend.node.schemaData[fieldName] = [linkRef];
-              } else if (Array.isArray(fieldValue)) {
-                // Field is already an array - append to it
-                fieldValue.push(linkRef);
-              } else {
-                // Field exists but is not an array - this is an error
-                throw new Error(
-                  `Cannot append child link to field '${fieldName}' on node '${tableParentFieldAppend.node.label}': ` +
-                    `field exists but is not an array (found ${typeof fieldValue}). ` +
-                    `Child link: ${linkRef}`,
-                );
-              }
+              appendParentField(
+                tableParentFieldAppend.node,
+                tableParentFieldAppend.field,
+                `[[${linkTargets[0] ?? title}]]`,
+              );
             }
           }
-          pendingMatch = undefined;
+          grouping = null;
         } else {
-          appendContent(currentActiveNode, mdastToString(child));
+          appendContent(activeNode, mdastToString(child));
         }
       }
     } else {
-      // For any other content (paragraph, code, etc), if we had a pending match,
-      // it means the heading itself is the node. Add it now.
-      if (pendingMatch) {
-        nodes.push(currentActiveNode);
-        pendingMatch = undefined;
+      // For any other content (paragraph, code, etc), if we had a grouping,
+      // it means the heading itself is the node. Flush it now.
+      if (grouping) {
+        flushGrouping(grouping);
+        grouping = null;
       }
 
       if (child.type === 'paragraph') {
@@ -678,25 +816,25 @@ export function extractEmbeddedNodes(body: string, options: ExtractEmbeddedOptio
 
         if ('type' in allFields) {
           throw new Error(
-            `Type override via paragraph field is not supported at "${currentActiveNode.schemaData.title ?? currentActiveNode.label}". ` +
+            `Type override via paragraph field is not supported at "${activeNode.schemaData.title ?? activeNode.label}". ` +
               `Put [type:: ${(allFields as Record<string, string>).type}] directly in the heading text.`,
           );
         }
 
-        Object.assign(currentActiveNode.schemaData, allFields);
-        if (remainingText) appendContent(currentActiveNode, remainingText);
+        Object.assign(activeNode.schemaData, allFields);
+        if (remainingText) appendContent(activeNode, remainingText);
       } else if (child.type === 'code' && (child as Code).lang?.trim() === 'yaml') {
         const code = child as Code;
         const parsed = yamlLoad(code.value);
         if (parsed && !Array.isArray(parsed) && typeof parsed === 'object') {
-          Object.assign(currentActiveNode.schemaData, applyFieldMap(parsed as Record<string, unknown>, fieldMap));
+          Object.assign(activeNode.schemaData, applyFieldMap(parsed as Record<string, unknown>, fieldMap));
         } else if (Array.isArray(parsed)) {
-          throw new Error(`YAML block must be an object at "${currentActiveNode.label}".`);
+          throw new Error(`YAML block must be an object at "${activeNode.label}".`);
         } else {
-          appendContent(currentActiveNode, code.value);
+          appendContent(activeNode, code.value);
         }
       } else {
-        appendContent(currentActiveNode, mdastToString(child));
+        appendContent(activeNode, mdastToString(child));
       }
     }
   }

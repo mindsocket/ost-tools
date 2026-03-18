@@ -20,7 +20,7 @@ See `~/src/ost-tools/schemas/` for examples (`general.json`, `strict_ost.json`, 
     {
       "parent": "opportunity",
       "type": "assumption",
-      "format": "table",
+      "templateFormat": "table",
       "matchers": ["Assumptions"]
     }
   ],
@@ -45,6 +45,7 @@ Use object entries to override defaults:
 - `fieldOn: "parent"` when parent points to children
 - `multiple: true` for array wikilinks
 - `selfRef: true` for same-type parent links
+- `templateFormat` + `matchers` to enable hierarchy embedding (same section-based parsing as relationships)
 
 ### Relationships (`$metadata.relationships`)
 
@@ -56,7 +57,7 @@ Relationships define how sub-entities (nodes inside other files) are parsed and 
 | `type` | required | Child canonical type |
 | `field` | `"parent"` | Frontmatter field holding the wikilink(s). Must be explicit when `fieldOn: "parent"`. |
 | `fieldOn` | `"child"` | `"child"`: child has the field pointing up. `"parent"`: parent has an array field pointing down to children. |
-| `format` | | Hint for `template-sync`: `"table"`, `"list"`, or `"heading"` |
+| `templateFormat` | | Hint for `template-sync`: `"table"`, `"list"`, or `"heading"` |
 | `matchers` | | Heading text to match (strings or `/regex/`). Case-insensitive. |
 | `multiple` | `true` | Whether multiple children are expected |
 | `embeddedTemplateFields` | | Field names for table columns |

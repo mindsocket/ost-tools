@@ -150,12 +150,26 @@ The **hierarchy** is the ordered list of node types in a space, from root to lea
 
 The hierarchy is modelled as a layered DAG: a non-root node may have zero parents (orphaned), one parent, or multiple parents. The `show` command renders this as an indented tree, marking repeated nodes with `(*)` where the subtree is already shown elsewhere.
 
-Each non-root level uses the shared `field`, `fieldOn`, and `multiple` edge options (see [Graph edges](#graph-edges)). Two additional options are hierarchy-specific:
+Each non-root level uses the shared `field`, `fieldOn`, and `multiple` edge options (see [Graph edges](#graph-edges)). Hierarchy-specific options:
 
 | Option | Default | Meaning |
 |---|---|---|
 | `selfRef` | `false` | When `true`, a node may have a parent of the same resolved type, using `field` for both regular and same-type parents |
 | `selfRefField` | _undefined_ | When set, specifies a separate field for same-type parent relationships (always on the child). Requires `selfRef: true`. |
+| `templateFormat` | _undefined_ | Embedding hint (`"list"`, `"table"`, `"heading"`). When set alongside `matchers`, enables hierarchy embedding in typed pages |
+| `matchers` | _undefined_ | Heading patterns (strings or `/regex/`) that signal this level's embedding section |
+| `embeddedTemplateFields` | _undefined_ | Column names used when `template-sync` generates table stubs for this level |
+
+### Hierarchy embedding
+
+Hierarchy levels with `templateFormat` and `matchers` support **embedded parsing** analogous to relationships: a heading in a typed page that matches the level's `matchers` signals that following content (list items or table rows) belongs to that type, without requiring explicit `[type:: x]` annotations.
+
+Two sub-patterns:
+
+- **Child-level embedding** — heading matches the next level in hierarchy → items create new child nodes.
+- **Parent-level referencing** — heading matches the level *above* the current node's type → bare wikilink items (`- [[X]]`) populate the current node's field pointing up to that parent type. This lets a node list its parent references inline without creating duplicate nodes.
+
+Bare wikilink items (`- [[X]]`) in any embedding section always populate a field rather than creating new nodes.
 
 **Example: Activities listing Capabilities with sub-capabilities**
 
@@ -185,7 +199,7 @@ A **relationship** is a link between a parent type and a child type that is not 
 Relationships are defined in `$metadata.relationships`. Like hierarchy levels, they use the shared `field`, `fieldOn`, and `multiple` edge options (see [Graph edges](#graph-edges)), but carry additional metadata used for parsing and template generation:
 
 - **`parent`** / **`type`** — the parent and child canonical types (required)
-- **`format`** — parsing/generation hint: `"heading"`, `"list"`, `"table"`, or `"page"`
+- **`templateFormat`** — parsing/generation hint: `"heading"`, `"list"`, `"table"`, or `"page"`
 - **`matchers`** — heading text patterns (strings or `/regex/`) used to detect relationship sections during embedded parsing
 
 A heading in a typed page that matches a relationship's `matchers` signals to the parser that following content (single nodes, list items, or table rows) should be typed as that relationship's child type — without requiring explicit inline `[type:: x]` annotations.

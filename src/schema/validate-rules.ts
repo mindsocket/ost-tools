@@ -1,4 +1,4 @@
-import type { RulesMetadata, RuleViolation, SpaceNode } from '../types';
+import type { Rule, RuleViolation, SpaceNode } from '../types';
 import { buildEvalContext, evaluateExpression } from './evaluate-rule';
 
 /**
@@ -9,7 +9,7 @@ import { buildEvalContext, evaluateExpression } from './evaluate-rule';
  * @param rules - Rules metadata list
  * @returns Array of rule violations
  */
-export async function validateRules(nodes: SpaceNode[], rules: RulesMetadata): Promise<RuleViolation[]> {
+export async function validateRules(nodes: SpaceNode[], rules: Rule[]): Promise<RuleViolation[]> {
   const violations: RuleViolation[] = [];
 
   // Build node index for efficient lookups

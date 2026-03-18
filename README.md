@@ -54,7 +54,7 @@ Schemas define the structure and rules for the entities in a space, allowing cus
 
 Two schemas (`general` and `strict_ost`) are included. The general schema combines a basic vision/mission/goals hierarchy with a hierarchy loosely based on Opportunity Solution Trees. It is intentionally flexible to support rapid initial adoption. The strict OST schema has a narrower scope, and reflects Teresa Torres' specific recommendations for Opportunity Solution Trees more closely.
 
-ost-tools schemas use a Draft-07-based metaschema that adds a top-level `$metadata` block:
+ost-tools schemas use a metaschema based on JSON Schema Draft-07 that adds a top-level `$metadata` block:
 
 ```json5
 "$metadata": {
@@ -66,7 +66,7 @@ ost-tools schemas use a Draft-07-based metaschema that adds a top-level `$metada
     {
       "parent": "opportunity",
       "type": "assumption",
-      "format": "table",
+      "templateFormat": "table",
       "matchers": ["Assumptions"]
     }
   ],
@@ -87,7 +87,8 @@ Rules are a flat array (`rules[]`) with per-rule `category`.
 
 Schema hierarchy levels support DAG (multi-parent) relationships via configurable edge fields. Each entry in `$metadata.hierarchy.levels` can be a plain type name string (defaults to `parent` field on child nodes) or an object:
 
-```json
+```json5
+// Example fragments for hierarchy level objects:
 { "type": "opportunity", "selfRef": true }
 { "type": "solution", "field": "fulfills", "multiple": true }
 { "type": "requirement", "field": "generates", "fieldOn": "parent", "multiple": true }
@@ -102,8 +103,18 @@ Schema hierarchy levels support DAG (multi-parent) relationships via configurabl
 | `multiple` | `false` | Whether the field is an array of wikilinks (enables multi-parent DAG) |
 | `selfRef` | `false` | Whether a node of this type may reference a same-type parent |
 | `selfRefField` | _undefined_ | Optional field for same-type parent relationships (always on child-side and singular) |
+| `templateFormat` | _undefined_ | Embedding hint (`"list"`, `"table"`, `"heading"`). When set alongside `matchers`, enables hierarchy embedding in typed pages |
+| `matchers` | _undefined_ | Heading patterns (strings or `/regex/`) to match for hierarchy embedding. Case-insensitive. |
+| `embeddedTemplateFields` | _undefined_ | Column names for table stubs when `template-sync` generates templates |
 
 The `selfRefField` property enables different fields for regular vs same-type relationships. For example, requirements can list solutions via `solutions` on the requirement node, while solutions can reference parent solutions via `parent` on the solution node.
+
+**Hierarchy embedding** — when `templateFormat` and `matchers` are set on a level, typed pages may include section headings that signal embedded content for that type without explicit `[type:: x]` annotations. Two patterns:
+
+- **Child-level**: heading matches the child level's type/matchers → list or table items create child nodes.
+- **Parent-level references**: heading matches the *parent* level's type/matchers → bare wikilink items (`- [[X]]`) populate the current node's reference field rather than creating new nodes. Useful for listing parent relationships inline.
+
+Bare wikilink items (`- [[Existing Node]]`) in any embedding section populate a field rather than creating a new node.
 
 **Adjacent Relationships** (`$metadata.relationships`) define connections between types outside the primary hierarchy — such as an `activity` having many `task` nodes. They drive embedded parsing (typed headings, lists, tables) and template generation.
 
@@ -113,7 +124,7 @@ The `selfRefField` property enables different fields for regular vs same-type re
 | `type` | required | Child canonical type |
 | `field` | `"parent"` | Frontmatter field holding the wikilink(s). Required when `fieldOn: "parent"`. |
 | `fieldOn` | `"child"` | `"child"`: child holds a link pointing up. `"parent"`: parent holds an array of child links. |
-| `format` | `"page"` | Hint for `template-sync`: `"table"`, `"list"`, or `"heading"` |
+| `templateFormat` | `"page"` | Hint for `template-sync`: `"table"`, `"list"`, or `"heading"` |
 | `matchers` | `[]` | Heading text to match for embedded parsing (strings or `/regex/`). Case-insensitive. |
 | `multiple` | `true` | Whether multiple children are expected |
 | `embeddedTemplateFields` | `[]` | Field names to include as table columns in templates |

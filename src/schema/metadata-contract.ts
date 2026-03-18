@@ -3,13 +3,39 @@ import type { FromSchema } from 'json-schema-to-ts';
 export const OST_TOOLS_SCHEMA_META_ID =
   'https://raw.githubusercontent.com/mindsocket/ost-tools/main/schemas/generated/_ost_tools_schema_meta.json';
 
+/** Graph edge routing fields shared by hierarchy levels and relationships. */
+const EDGE_PROPS = {
+  field: { type: 'string', minLength: 1 },
+  fieldOn: { enum: ['child', 'parent'] },
+  multiple: { type: 'boolean' },
+} as const;
+
+/** Embedding/template hint fields shared by hierarchy levels and relationships. */
+const EMBEDDING_PROPS = {
+  templateFormat: { enum: ['heading', 'list', 'table', 'page'] },
+  matchers: { type: 'array', items: { type: 'string', minLength: 1 }, minItems: 1 },
+  embeddedTemplateFields: { type: 'array', items: { type: 'string', minLength: 1 } },
+} as const;
+
+/** Schema objects wrapping each prop group for type derivation via FromSchema. */
+const EDGE_SCHEMA = {
+  type: 'object',
+  properties: EDGE_PROPS,
+  additionalProperties: false,
+} as const;
+
+const EMBEDDING_SCHEMA = {
+  type: 'object',
+  properties: EMBEDDING_PROPS,
+  additionalProperties: false,
+} as const;
+
 const HIERARCHY_LEVEL_SCHEMA = {
   type: 'object',
   properties: {
     type: { type: 'string', minLength: 1 },
-    field: { type: 'string', minLength: 1 },
-    fieldOn: { enum: ['child', 'parent'] },
-    multiple: { type: 'boolean' },
+    ...EDGE_PROPS,
+    ...EMBEDDING_PROPS,
     selfRef: { type: 'boolean' },
     selfRefField: { type: 'string', minLength: 1 },
   },
@@ -46,19 +72,8 @@ const RELATIONSHIP_SCHEMA = {
   properties: {
     parent: { type: 'string', minLength: 1 },
     type: { type: 'string', minLength: 1 },
-    field: { type: 'string', minLength: 1 },
-    fieldOn: { enum: ['child', 'parent'] },
-    format: { enum: ['heading', 'list', 'table', 'page'] },
-    multiple: { type: 'boolean' },
-    matchers: {
-      type: 'array',
-      items: { type: 'string', minLength: 1 },
-      minItems: 1,
-    },
-    embeddedTemplateFields: {
-      type: 'array',
-      items: { type: 'string', minLength: 1 },
-    },
+    ...EDGE_PROPS,
+    ...EMBEDDING_PROPS,
   },
   required: ['parent', 'type'],
   additionalProperties: false,
@@ -113,10 +128,10 @@ export const OST_TOOLS_DIALECT_META_SCHEMA = {
 } as const;
 
 export type MetadataContract = FromSchema<typeof OST_TOOLS_METADATA_SCHEMA>;
-export type MetadataContractHierarchy = MetadataContract['hierarchy'];
-export type MetadataContractRule = FromSchema<typeof RULE_SCHEMA>;
-export type MetadataContractRuleRef = FromSchema<typeof RULE_REF_SCHEMA>;
-export type MetadataContractRules = Exclude<MetadataContract['rules'], undefined>;
-export type MetadataContractRuleEntry = MetadataContractRules[number];
-export type MetadataContractResolvedRules = MetadataContractRule[];
-export type MetadataContractRelationship = FromSchema<typeof RELATIONSHIP_SCHEMA>;
+export type MetadataContractHierarchyLevel = FromSchema<typeof HIERARCHY_LEVEL_SCHEMA>;
+export type Relationship = FromSchema<typeof RELATIONSHIP_SCHEMA>;
+export type SharedEdgeFields = FromSchema<typeof EDGE_SCHEMA>;
+export type SharedEmbeddingFields = FromSchema<typeof EMBEDDING_SCHEMA>;
+export type Rule = FromSchema<typeof RULE_SCHEMA>;
+export type RuleRef = FromSchema<typeof RULE_REF_SCHEMA>;
+export type RuleEntry = Rule | RuleRef;

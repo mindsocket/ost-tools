@@ -1,4 +1,4 @@
-import type { MetadataContractRelationship } from '../schema/metadata-contract';
+import type { Relationship } from '../schema/metadata-contract';
 import { resolveNodeType } from '../schema/schema';
 import type { EdgeDefinition, HierarchyLevel, ResolvedParentRef, SpaceNode } from '../types';
 import { buildTargetIndex, wikilinkToTarget } from './wikilink-utils';
@@ -90,7 +90,7 @@ function resolveEdge(
 export function resolveGraphEdges(
   nodes: SpaceNode[],
   levels: HierarchyLevel[],
-  relationships: MetadataContractRelationship[] = [],
+  relationships: Relationship[] = [],
   typeAliases?: Record<string, string>,
 ): void {
   // Initialize all nodes' resolvedParents to empty array

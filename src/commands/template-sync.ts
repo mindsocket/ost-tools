@@ -5,10 +5,10 @@ import { glob } from 'glob';
 import matter from 'gray-matter';
 import yaml from 'js-yaml';
 import { invertFieldMap } from '../config';
-import type { MetadataContractRelationship } from '../schema/metadata-contract';
+import type { Relationship } from '../schema/metadata-contract';
 import { buildFullRegistry, readRawSchema } from '../schema/schema';
 import { mergeVariantProperties, resolveRef } from '../schema/schema-refs';
-import type { SchemaWithMetadata } from '../types';
+import type { HierarchyLevel, SchemaWithMetadata } from '../types';
 
 export interface TypeVariant {
   required: string[];
@@ -16,7 +16,9 @@ export interface TypeVariant {
   properties: Record<string, AnySchemaObject>;
   example: Record<string, string | number | boolean>;
   description: string | undefined;
-  relationships: MetadataContractRelationship[];
+  relationships: Relationship[];
+  /** Hierarchy child levels where this type is the parent and the level has templateFormat/matchers. */
+  hierarchyChildren: HierarchyLevel[];
 }
 
 // Fields derived from the filesystem — present at validation time but not written to frontmatter
@@ -93,6 +95,13 @@ export function getTypeVariants(
     const allRelationships = schema.$metadata?.relationships || [];
     const typeRelationships = allRelationships.filter((rel) => rel.parent === typeName);
 
+    const allLevels = schema.$metadata?.hierarchy?.levels ?? [];
+    const typeIdx = allLevels.findIndex((l) => l.type === typeName);
+    const hierarchyChildren: HierarchyLevel[] =
+      typeIdx !== -1 && typeIdx < allLevels.length - 1
+        ? allLevels.slice(typeIdx + 1).filter((l) => l.templateFormat && l.matchers)
+        : [];
+
     map.set(typeName, {
       required,
       optional,
@@ -100,6 +109,7 @@ export function getTypeVariants(
       example,
       description,
       relationships: typeRelationships,
+      hierarchyChildren,
     });
   }
   return map;
@@ -164,7 +174,7 @@ export function generateNewContent(
     const childVariant = allVariants.get(rel.type);
     const childExample = childVariant?.example || {};
 
-    if (rel.format === 'table' && rel.embeddedTemplateFields) {
+    if (rel.templateFormat === 'table' && rel.embeddedTemplateFields) {
       const header = `| ${rel.embeddedTemplateFields.join(' | ')} |`;
       const sep = `| ${rel.embeddedTemplateFields.map(() => '---|').join('')}`;
       const exampleValues = rel.embeddedTemplateFields.map((field) => {
@@ -173,7 +183,7 @@ export function generateNewContent(
       });
       const exampleRow = `| ${exampleValues.join(' | ')} |`;
       relationshipStubs += `\n### ${matcher}\n\n${header}\n${sep}\n${exampleRow}\n`;
-    } else if (rel.format === 'heading') {
+    } else if (rel.templateFormat === 'heading') {
       let stub = `\n### ${matcher}\n\n`;
       if (childVariant) {
         // Include inline fields from example if it's a heading
@@ -186,8 +196,41 @@ export function generateNewContent(
         stub += `TODO: Describe ${rel.type}\n`;
       }
       relationshipStubs += stub;
-    } else if (rel.format === 'list') {
+    } else if (rel.templateFormat === 'list') {
       let stub = `\n### ${matcher}\n\n- [type:: ${rel.type}] `;
+      if (childVariant) {
+        const fields = Object.entries(childExample)
+          .filter(([k]) => k !== 'type' && k !== 'title' && k !== 'parent')
+          .map(([k, v]) => `[${k}:: ${v}]`)
+          .join(' ');
+        stub += `${fields}${fields ? ' ' : ''}TODO`;
+      } else {
+        stub += 'TODO';
+      }
+      relationshipStubs += `${stub}\n`;
+    }
+  }
+
+  for (const level of variant.hierarchyChildren) {
+    const matcher = level.matchers?.[0] || level.type;
+    if (body.includes(`### ${matcher}`)) {
+      continue;
+    }
+
+    const childVariant = allVariants.get(level.type);
+    const childExample = childVariant?.example || {};
+
+    if (level.templateFormat === 'table' && level.embeddedTemplateFields) {
+      const header = `| ${level.embeddedTemplateFields.join(' | ')} |`;
+      const sep = `| ${level.embeddedTemplateFields.map(() => '---|').join('')}`;
+      const exampleValues = level.embeddedTemplateFields.map((field) => {
+        const val = childExample[field];
+        return val !== undefined ? String(val) : ' ';
+      });
+      const exampleRow = `| ${exampleValues.join(' | ')} |`;
+      relationshipStubs += `\n### ${matcher}\n\n${header}\n${sep}\n${exampleRow}\n`;
+    } else if (level.templateFormat === 'list') {
+      let stub = `\n### ${matcher}\n\n- [type:: ${level.type}] `;
       if (childVariant) {
         const fields = Object.entries(childExample)
           .filter(([k]) => k !== 'type' && k !== 'title' && k !== 'parent')

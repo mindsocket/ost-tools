@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import { extractEmbeddedNodes } from '../../src/read/parse-embedded';
-import type { MetadataContractRelationship } from '../../src/schema/metadata-contract';
+import type { Relationship } from '../../src/schema/metadata-contract';
 import type { HierarchyLevel } from '../../src/types';
 
 function toHierarchyLevels(types: string[]): HierarchyLevel[] {
@@ -11,11 +11,11 @@ describe('extractEmbeddedNodes - relationships', () => {
   const hierarchy = ['vision', 'mission', 'goal', 'opportunity', 'solution', 'experiment'];
 
   it('extracts table rows as typed nodes when first col matches relation type', () => {
-    const relationships: MetadataContractRelationship[] = [
+    const relationships: Relationship[] = [
       {
         parent: 'opportunity',
         type: 'assumption',
-        format: 'table',
+        templateFormat: 'table',
         matchers: ['Assumptions'],
         embeddedTemplateFields: ['assumption', 'status'],
         multiple: true,
@@ -68,11 +68,11 @@ describe('extractEmbeddedNodes - relationships', () => {
   });
 
   it('translates explicit heading matchers to typed parent context nodes', () => {
-    const relationships: MetadataContractRelationship[] = [
+    const relationships: Relationship[] = [
       {
         parent: 'opportunity',
         type: 'problem_statement',
-        format: 'heading',
+        templateFormat: 'heading',
         matchers: ['What problem are we solving?'],
         multiple: false,
       },
@@ -97,11 +97,11 @@ Our users are sad.
   });
 
   it('supports list-based sub-entities after relationship heading', () => {
-    const relationships: MetadataContractRelationship[] = [
+    const relationships: Relationship[] = [
       {
         parent: 'opportunity',
         type: 'solution',
-        format: 'list',
+        templateFormat: 'list',
         matchers: ['Possible Solutions'],
         multiple: true,
       },
@@ -127,11 +127,11 @@ Our users are sad.
   });
 
   it('supports /regex/ syntax and case-insensitive matching', () => {
-    const relationships: MetadataContractRelationship[] = [
+    const relationships: Relationship[] = [
       {
         parent: 'opportunity',
         type: 'assumption',
-        format: 'table',
+        templateFormat: 'table',
         matchers: ['/assum.*/'],
         embeddedTemplateFields: ['assumption', 'status'],
         multiple: true,
@@ -159,11 +159,11 @@ Our users are sad.
   });
 
   it('supports case-insensitive implicit type match', () => {
-    const relationships: MetadataContractRelationship[] = [
+    const relationships: Relationship[] = [
       {
         parent: 'opportunity',
         type: 'assumption',
-        format: 'table',
+        templateFormat: 'table',
         matchers: [],
         embeddedTemplateFields: ['assumption', 'status'],
         multiple: true,
@@ -192,11 +192,11 @@ Our users are sad.
 
   describe('fieldOn: parent array mutation bug', () => {
     it('should throw error when parent field is not an array (list format)', () => {
-      const relationships: MetadataContractRelationship[] = [
+      const relationships: Relationship[] = [
         {
           parent: 'opportunity',
           type: 'solution',
-          format: 'list',
+          templateFormat: 'list',
           matchers: ['Possible Solutions'],
           multiple: true,
           field: 'solutions',
@@ -221,11 +221,11 @@ Our users are sad.
     });
 
     it('should throw error when parent field is not an array (table format)', () => {
-      const relationships: MetadataContractRelationship[] = [
+      const relationships: Relationship[] = [
         {
           parent: 'opportunity',
           type: 'assumption',
-          format: 'table',
+          templateFormat: 'table',
           matchers: ['Assumptions'],
           multiple: true,
           field: 'assumptions',
@@ -254,11 +254,11 @@ Our users are sad.
     });
 
     it('should throw error when parent field is a number', () => {
-      const relationships: MetadataContractRelationship[] = [
+      const relationships: Relationship[] = [
         {
           parent: 'opportunity',
           type: 'solution',
-          format: 'list',
+          templateFormat: 'list',
           matchers: ['Solutions'],
           multiple: true,
           field: 'count',
@@ -283,11 +283,11 @@ Our users are sad.
     });
 
     it('should append to existing parent array field (list format)', () => {
-      const relationships: MetadataContractRelationship[] = [
+      const relationships: Relationship[] = [
         {
           parent: 'opportunity',
           type: 'solution',
-          format: 'list',
+          templateFormat: 'list',
           matchers: ['Solutions'],
           multiple: true,
           field: 'solutions',
@@ -318,11 +318,11 @@ Our users are sad.
     });
 
     it('should append to existing parent array field (table format)', () => {
-      const relationships: MetadataContractRelationship[] = [
+      const relationships: Relationship[] = [
         {
           parent: 'opportunity',
           type: 'assumption',
-          format: 'table',
+          templateFormat: 'table',
           matchers: ['Assumptions'],
           multiple: true,
           field: 'assumptions',

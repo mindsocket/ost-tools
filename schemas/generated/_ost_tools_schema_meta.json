@@ -42,6 +42,24 @@
                       "multiple": {
                         "type": "boolean"
                       },
+                      "templateFormat": {
+                        "enum": ["heading", "list", "table", "page"]
+                      },
+                      "matchers": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "minItems": 1
+                      },
+                      "embeddedTemplateFields": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
                       "selfRef": {
                         "type": "boolean"
                       },
@@ -83,11 +101,11 @@
               "fieldOn": {
                 "enum": ["child", "parent"]
               },
-              "format": {
-                "enum": ["heading", "list", "table", "page"]
-              },
               "multiple": {
                 "type": "boolean"
+              },
+              "templateFormat": {
+                "enum": ["heading", "list", "table", "page"]
               },
               "matchers": {
                 "type": "array",

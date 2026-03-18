@@ -157,7 +157,7 @@ function showMetadata(metadata: SchemaMetadata): void {
     for (const rel of metadata.relationships) {
       const fields = rel.embeddedTemplateFields?.length ? ` [fields: ${rel.embeddedTemplateFields.join(', ')}]` : '';
       const matchers = rel.matchers?.length ? ` (matches: ${rel.matchers.join(', ')})` : '';
-      console.log(`  ${rel.parent} → ${rel.type} [${rel.format ?? 'page'}]${fields}${matchers}`);
+      console.log(`  ${rel.parent} → ${rel.type} [${rel.templateFormat ?? 'page'}]${fields}${matchers}`);
     }
   }
 }

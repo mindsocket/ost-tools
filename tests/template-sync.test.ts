@@ -13,7 +13,7 @@ describe('template-sync - generateNewContent', () => {
         {
           parent: 'opportunity',
           type: 'assumption',
-          format: 'table',
+          templateFormat: 'table',
           matchers: ['Assumptions'],
           embeddedTemplateFields: ['assumption', 'status'],
           multiple: true,
@@ -21,14 +21,14 @@ describe('template-sync - generateNewContent', () => {
         {
           parent: 'opportunity',
           type: 'problem_statement',
-          format: 'heading',
+          templateFormat: 'heading',
           matchers: ['What problem are we solving?'],
           multiple: false,
         },
         {
           parent: 'opportunity',
           type: 'solution',
-          format: 'list',
+          templateFormat: 'list',
           matchers: ['Solutions'],
           multiple: true,
         },
@@ -45,6 +45,7 @@ describe('template-sync - generateNewContent', () => {
     example: { type: 'opportunity' },
     description: 'An opportunity',
     relationships: schema.$metadata!.relationships!.filter((r) => r.parent === 'opportunity'),
+    hierarchyChildren: [],
   };
 
   const assumptionVariant: TypeVariant = {
@@ -54,6 +55,7 @@ describe('template-sync - generateNewContent', () => {
     example: { type: 'assumption', assumption: 'User will pay', status: 'high' },
     description: 'An assumption',
     relationships: [],
+    hierarchyChildren: [],
   };
 
   const allVariants = new Map<string, TypeVariant>([
