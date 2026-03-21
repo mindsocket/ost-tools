@@ -59,7 +59,22 @@ export function setConfigPath(path: string | undefined): void {
 
 /** Get all config file paths that were loaded (main config + included configs). */
 export function getConfigSourceFiles(): Set<string> {
+  if (_spaceSourceFiles.size === 0) {
+    loadConfig();
+  }
   return new Set(_spaceSourceFiles.values());
+}
+
+/**
+ * Get the directory of the config file that defines a given space.
+ */
+export function getSpaceConfigDir(spaceName: string): string {
+  if (_spaceSourceFiles.size === 0) {
+    loadConfig();
+  }
+  const spaceConfigPath = _spaceSourceFiles.get(spaceName);
+  if (!spaceConfigPath) throw new Error('Space config path not found');
+  return dirname(spaceConfigPath);
 }
 
 export function configPath(): string {

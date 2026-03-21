@@ -23,6 +23,8 @@ export type PluginContext = {
   metadata: SchemaMetadata;
   /** Validated config for this plugin invocation. */
   pluginConfig: Record<string, unknown>;
+  /** Directory of the config file that defines this space. Used for resolving relative paths in plugin configs. */
+  configDir: string;
 };
 
 export type ParseResult = {
@@ -37,10 +39,8 @@ export type ParseHook = (context: PluginContext) => Promise<ParseResult | null>;
 
 export type OstToolsPlugin = {
   name: string;
-  /** JSON Schema used to validate the plugin's config block.
-   * TODO: support a path annotation (e.g. format or keyword) so the loader can resolve
-   * config fields that are filesystem paths relative to the config file, rather than
-   * each plugin hardcoding that knowledge in the core config resolver. */
+  /** JSON Schema used to validate the plugin's config block. Fields with `format: 'path'`
+   * are resolved relative to the config directory by `resolveConfigPaths` in the loader. */
   configSchema: AnySchemaObject;
   parse?: ParseHook;
   // Future: canHandle?(context) → boolean | Promise<boolean> for deterministic routing.

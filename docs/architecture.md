@@ -16,9 +16,13 @@ flowchart LR
 
     subgraph read [Read]
         direction TB
+        plugin[Plugin parse hook<br>e.g. markdown plugin]
         rdir[read-space-directory<br>read-space-on-a-page]
         embed[parse-embedded<br>extract nodes from body]
+        resolve[resolveGraphEdges<br>wikilink → resolvedParents]
+        plugin --> rdir
         rdir --> embed
+        embed --> resolve
     end
 
     nodes[(Space Nodes<br>schemaData · linkTargets<br>resolvedType · resolvedParents)]
@@ -54,8 +58,9 @@ flowchart LR
 
 | Boundary | Data |
 |---|---|
-| Space → Read | Raw markdown files / `space_on_a_page` file |
-| Read → Nodes | `SpaceNode[]` — schemaData (canonical fields), resolvedType, resolvedParents (`ResolvedParentRef[]`), linkTargets |
+| Space → Read | Source files passed to the active plugin's `parse` hook |
+| Plugin → Core | `ParseResult` — raw `SpaceNode[]` (before graph resolution), diagnostics |
+| Core (Read) → Nodes | `SpaceNode[]` — schemaData (canonical fields), resolvedType, resolvedParents (`ResolvedParentRef[]`), linkTargets — after `resolveGraphEdges` |
 | Schema → Read | Hierarchy levels + relationships (type names, edge fields, direction, cardinality), type aliases |
 | Schema → Validate | AJV validator, hierarchy rules, JSONata rule expressions |
 | Nodes → Output | Validated node set; output commands interpret as needed |

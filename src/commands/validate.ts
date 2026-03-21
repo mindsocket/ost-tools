@@ -294,14 +294,10 @@ export async function validate(path: string, options: { schema: string }): Promi
 
   console.log(`\n`);
 
-  // Return exit code (0 for success, 1 for validation failures)
-  if (
-    result.nodeErrorCount > 0 ||
-    result.refErrors.length > 0 ||
-    result.duplicateErrors.length > 0 ||
-    result.ruleViolations.length > 0 ||
-    result.hierarchyViolations.length > 0
-  ) {
+  // Return exit code (0 for success, 1 for validation failures, 2 for warnings)
+  if (result.nodeErrorCount > 0 || result.duplicateErrors.length > 0 || result.hierarchyViolations.length > 0) {
+    return 2;
+  } else if (result.refErrors.length > 0 || result.ruleViolations.length > 0) {
     return 1;
   }
   return 0;

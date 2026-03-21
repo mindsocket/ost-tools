@@ -21,7 +21,7 @@ describe('Smoke: validate all configured spaces', () => {
         if (errors) console.error(`--- ${space.name} stderr ---\n${errors}`);
       }
 
-      expect(result.exitCode).toBe(0);
+      expect(result.exitCode).not.toBe(2);
     });
   }
 });

@@ -39,6 +39,7 @@ export function validateGraph(nodes: SpaceNode[], metadata: SchemaMetadata): Gra
         refErrors,
         violations,
         metadata.typeAliases,
+        level.selfRef,
       );
     }
     // Case 2: Parent has field pointing to child
@@ -54,6 +55,21 @@ export function validateGraph(nodes: SpaceNode[], metadata: SchemaMetadata): Gra
         violations,
         metadata.typeAliases,
       );
+      // For selfRef with fieldOn:'parent', level.type nodes also use the same field to point
+      // to same-type children; validate those references separately.
+      if (level.selfRef) {
+        validateFieldReferences(
+          nodes,
+          linkTargetIndex,
+          level.type,
+          level.type,
+          level.field,
+          level.multiple,
+          refErrors,
+          violations,
+          metadata.typeAliases,
+        );
+      }
     }
   }
 
@@ -112,6 +128,7 @@ export function validateGraph(nodes: SpaceNode[], metadata: SchemaMetadata): Gra
  * @param refErrors Array to collect reference errors (not found, ambiguous)
  * @param violations Array to collect hierarchy/type violations
  * @param typeAliases Optional type aliases for resolution
+ * @param selfRefAllowed When true, same-type refs are also valid (for selfRef hierarchy levels)
  */
 function validateFieldReferences(
   nodes: SpaceNode[],
@@ -123,6 +140,7 @@ function validateFieldReferences(
   refErrors: Array<{ file: string; parent: string; error: string }>,
   violations: GraphViolation[],
   typeAliases?: Record<string, string>,
+  selfRefAllowed?: boolean,
 ): void {
   const resolvedNodeTypeWithField = resolveNodeType(nodeTypeWithField, typeAliases);
   const resolvedExpectedTargetType = resolveNodeType(expectedTargetType, typeAliases);
@@ -157,7 +175,10 @@ function validateFieldReferences(
             parent: ref,
             error: `Link target "${target}" in field "${field}" is ambiguous (matches multiple nodes)`,
           });
-        } else if (resolved.resolvedType !== resolvedExpectedTargetType) {
+        } else if (
+          resolved.resolvedType !== resolvedExpectedTargetType &&
+          !(selfRefAllowed && resolved.resolvedType === resolvedNodeTypeWithField)
+        ) {
           violations.push({
             file: node.label,
             nodeType: resolvedNodeTypeWithField,
@@ -191,7 +212,10 @@ function validateFieldReferences(
           parent: rawField,
           error: `Link target "${target}" in field "${field}" is ambiguous (matches multiple nodes)`,
         });
-      } else if (resolved.resolvedType !== resolvedExpectedTargetType) {
+      } else if (
+        resolved.resolvedType !== resolvedExpectedTargetType &&
+        !(selfRefAllowed && resolved.resolvedType === resolvedNodeTypeWithField)
+      ) {
         // Different description for child-side parent field for backward compatibility with test expectations
         const isParentField = field === 'parent' && node.resolvedType === resolvedNodeTypeWithField;
         const description = isParentField

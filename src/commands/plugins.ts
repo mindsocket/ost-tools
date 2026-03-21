@@ -1,24 +1,29 @@
-import { existsSync, readdirSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
-import { configPath } from '../config';
 import { builtinPlugins } from '../plugins';
-import { CONFIG_PLUGINS_DIR, PLUGIN_PREFIX } from '../plugins/util';
+import { discoverPlugins } from '../plugins/loader';
+import type { OstToolsPlugin } from '../plugins/util';
 
-export function listPlugins(): void {
+function showConfigSchema(plugin: OstToolsPlugin): void {
+  console.log(JSON.stringify(plugin.configSchema, null, 2));
+}
+
+export async function listPlugins(): Promise<void> {
+  const builtinNames = new Set(builtinPlugins.map((p) => p.name));
+  const plugins = await discoverPlugins();
+
+  const builtins = plugins.filter((p) => builtinNames.has(p.name));
+  const external = plugins.filter((p) => !builtinNames.has(p.name));
+
   console.log('Built-in plugins:');
-  for (const plugin of builtinPlugins) {
+  for (const plugin of builtins) {
     console.log(`  ${plugin.name}`);
+    showConfigSchema(plugin);
   }
 
-  const cfgDir = dirname(resolve(configPath()));
-  const pluginsDir = join(cfgDir, CONFIG_PLUGINS_DIR);
-  if (existsSync(pluginsDir)) {
-    const entries = readdirSync(pluginsDir).filter((e) => e.startsWith(PLUGIN_PREFIX));
-    if (entries.length > 0) {
-      console.log('\nConfig-adjacent plugins:');
-      for (const entry of entries) {
-        console.log(`  ${entry}`);
-      }
+  if (external.length > 0) {
+    console.log('\nConfig-adjacent plugins:');
+    for (const plugin of external) {
+      console.log(`  ${plugin.name}`);
+      showConfigSchema(plugin);
     }
   }
 }

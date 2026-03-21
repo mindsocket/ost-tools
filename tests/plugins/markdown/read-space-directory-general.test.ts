@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'bun:test';
 import { join } from 'node:path';
 import { readSpaceDirectory } from '../../../src/plugins/markdown/read-space';
 import type { ParseResult } from '../../../src/plugins/util';
-import { loadSpaceContext } from '../../../src/read/context';
+import { buildPluginContext } from '../../../src/read/read-space';
 
 const VALID_DIR = join(import.meta.dir, '../../fixtures/general/valid-ost');
 const INVALID_DIR = join(import.meta.dir, '../../fixtures/general/invalid-ost');
@@ -12,7 +12,7 @@ describe('readSpaceDirectory', () => {
     let result: ParseResult;
 
     beforeAll(async () => {
-      result = await readSpaceDirectory(loadSpaceContext(VALID_DIR));
+      result = await readSpaceDirectory(buildPluginContext(VALID_DIR));
     });
 
     it('returns 12 OST nodes (5 original + vision_page + 2 embedded + solution_page + anchor_vision + 2 embedded)', () => {
@@ -61,7 +61,7 @@ describe('readSpaceDirectory', () => {
     let result: ParseResult;
 
     beforeAll(async () => {
-      result = await readSpaceDirectory(loadSpaceContext(VALID_DIR));
+      result = await readSpaceDirectory(buildPluginContext(VALID_DIR));
     });
 
     it('includes vision_page.md as its own node', () => {
@@ -113,7 +113,7 @@ describe('readSpaceDirectory', () => {
     let result: ParseResult;
 
     beforeAll(async () => {
-      result = await readSpaceDirectory(loadSpaceContext(VALID_DIR));
+      result = await readSpaceDirectory(buildPluginContext(VALID_DIR));
     });
 
     it('infers type "mission" from ^mission anchor', () => {
@@ -153,7 +153,7 @@ describe('readSpaceDirectory', () => {
 
   describe('invalid-ost directory', () => {
     it('returns all 3 nodes regardless of schema validity', async () => {
-      const result = await readSpaceDirectory(loadSpaceContext(INVALID_DIR));
+      const result = await readSpaceDirectory(buildPluginContext(INVALID_DIR));
       expect(result.nodes).toHaveLength(3);
     });
   });

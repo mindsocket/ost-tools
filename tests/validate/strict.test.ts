@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'bun:test';
 import { join } from 'node:path';
 import { readSpaceDirectory, readSpaceOnAPage } from '../../src/plugins/markdown/read-space';
-import { loadSpaceContext } from '../../src/read/context';
+import { buildPluginContext } from '../../src/read/read-space';
 import { bundledSchemasDir, createValidator } from '../../src/schema/schema';
 import type { SpaceNode } from '../../src/types';
 
@@ -195,7 +195,7 @@ describe('Strict OST schema validation', () => {
     let nodes: SpaceNode[];
 
     beforeAll(async () => {
-      ({ nodes } = await readSpaceDirectory(loadSpaceContext(VALID_DIR, STRICT_SCHEMA_PATH)));
+      ({ nodes } = await readSpaceDirectory(buildPluginContext(VALID_DIR, STRICT_SCHEMA_PATH)));
     });
 
     it('reads all 4 nodes from valid-directory', () => {
@@ -213,7 +213,7 @@ describe('Strict OST schema validation', () => {
     let nodes: SpaceNode[];
 
     beforeAll(() => {
-      ({ nodes } = readSpaceOnAPage(loadSpaceContext(VALID_ON_A_PAGE, STRICT_SCHEMA_PATH)));
+      ({ nodes } = readSpaceOnAPage(buildPluginContext(VALID_ON_A_PAGE, STRICT_SCHEMA_PATH)));
     });
 
     it('extracts nodes from ost-on-a-page.md', () => {
@@ -231,7 +231,7 @@ describe('Strict OST schema validation', () => {
     let nodes: SpaceNode[];
 
     beforeAll(() => {
-      ({ nodes } = readSpaceOnAPage(loadSpaceContext(VALID_TREE, STRICT_SCHEMA_PATH)));
+      ({ nodes } = readSpaceOnAPage(buildPluginContext(VALID_TREE, STRICT_SCHEMA_PATH)));
     });
 
     it('extracts nodes from valid-tree.md', () => {
@@ -250,7 +250,7 @@ describe('Strict OST schema validation', () => {
 
     beforeAll(async () => {
       // Read from invalid directory - note that readSpaceDirectory doesn't validate
-      ({ nodes } = await readSpaceDirectory(loadSpaceContext(INVALID_DIR)));
+      ({ nodes } = await readSpaceDirectory(buildPluginContext(INVALID_DIR)));
     });
 
     it('rejects vision type (not allowed in strict_ost)', () => {

@@ -1,6 +1,7 @@
-import { existsSync } from 'node:fs';
-import { isAbsolute, join, resolve } from 'node:path';
+import { existsSync, readdirSync } from 'node:fs';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import Ajv, { type AnySchemaObject } from 'ajv';
+import { getConfigSourceFiles } from '../config';
 import { builtinPlugins } from '.';
 import { CONFIG_PLUGINS_DIR, normalizePluginName, type OstToolsPlugin, PLUGIN_PREFIX } from './util';
 
@@ -44,6 +45,33 @@ async function resolveExternalPlugin(name: string, configDir: string): Promise<O
     throw new Error(`Plugin "${name}" must export an OstToolsPlugin as its default export`);
   }
   return plugin;
+}
+
+/**
+ * Discover all available plugins: built-ins first, then any config-adjacent plugins found
+ * in {configDir}/plugins/ across all loaded config files. Does not load npm plugins
+ * (those are only declared in space configs).
+ */
+export async function discoverPlugins(): Promise<OstToolsPlugin[]> {
+  // Convert the Set of files into a Set of dirs
+  const configDirs = [...new Set(Array.from(getConfigSourceFiles()).map((f) => dirname(f)))];
+
+  const plugins: OstToolsPlugin[] = [...builtinPlugins];
+  const seenNames = new Set(builtinPlugins.map((p) => p.name));
+
+  for (const configDir of configDirs) {
+    const pluginsDir = join(configDir, CONFIG_PLUGINS_DIR);
+    if (existsSync(pluginsDir)) {
+      const entries = readdirSync(pluginsDir).filter((e) => e.startsWith(PLUGIN_PREFIX));
+      for (const entry of entries) {
+        if (!seenNames.has(entry)) {
+          plugins.push(await resolveExternalPlugin(entry, configDir));
+          seenNames.add(entry);
+        }
+      }
+    }
+  }
+  return plugins;
 }
 
 /**

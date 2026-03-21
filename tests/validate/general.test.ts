@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'bun:test';
 import { join } from 'node:path';
 import { readSpaceDirectory, readSpaceOnAPage } from '../../src/plugins/markdown/read-space';
-import { loadSpaceContext } from '../../src/read/context';
+import { buildPluginContext } from '../../src/read/read-space';
 import { resolveGraphEdges } from '../../src/read/resolve-graph-edges';
 import { bundledSchemasDir, createValidator, loadMetadata } from '../../src/schema/schema';
 import { validateGraph } from '../../src/schema/validate-graph';
@@ -21,7 +21,7 @@ describe('Schema validation', () => {
     let nodes: SpaceNode[];
 
     beforeAll(async () => {
-      ({ nodes } = await readSpaceDirectory(loadSpaceContext(VALID_DIR)));
+      ({ nodes } = await readSpaceDirectory(buildPluginContext(VALID_DIR)));
     });
 
     it('all 12 nodes pass schema validation', () => {
@@ -41,7 +41,7 @@ describe('Schema validation', () => {
     let nodes: SpaceNode[];
 
     beforeAll(() => {
-      ({ nodes } = readSpaceOnAPage(loadSpaceContext(VALID_PAGE)));
+      ({ nodes } = readSpaceOnAPage(buildPluginContext(VALID_PAGE)));
     });
 
     it('all nodes pass schema validation', () => {
@@ -56,7 +56,7 @@ describe('Schema validation', () => {
     let nodes: SpaceNode[];
 
     beforeAll(async () => {
-      ({ nodes } = await readSpaceDirectory(loadSpaceContext(INVALID_DIR)));
+      ({ nodes } = await readSpaceDirectory(buildPluginContext(INVALID_DIR)));
     });
 
     it('missing-status.md fails schema validation (no status field)', () => {
@@ -295,7 +295,7 @@ describe('Schema validation', () => {
   describe('duplicate title detection', () => {
     it('detects duplicate titles from same filename in different directories', async () => {
       const { nodes } = await readSpaceDirectory(
-        loadSpaceContext(join(import.meta.dir, '../fixtures/general/duplicate-titles')),
+        buildPluginContext(join(import.meta.dir, '../fixtures/general/duplicate-titles')),
       );
       const titleCounts = new Map<string, SpaceNode[]>();
       for (const node of nodes) {
@@ -313,7 +313,7 @@ describe('Schema validation', () => {
 
     it('detects duplicate titles from embedded nodes', () => {
       const { nodes } = readSpaceOnAPage(
-        loadSpaceContext(join(import.meta.dir, '../fixtures/general/duplicate-embedded.md')),
+        buildPluginContext(join(import.meta.dir, '../fixtures/general/duplicate-embedded.md')),
       );
       const titleCounts = new Map<string, SpaceNode[]>();
       for (const node of nodes) {

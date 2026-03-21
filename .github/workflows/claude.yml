@@ -41,6 +41,10 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Ensure setup-bun's bun takes precedence
+        run: echo "$(dirname $(which bun))" >> $GITHUB_PATH
+
+
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@v1

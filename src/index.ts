@@ -167,7 +167,10 @@ program
     });
   });
 
-program.command('plugins').description('List available plugins').action(listPlugins);
+program
+  .command('plugins')
+  .description('List available plugins')
+  .action(async () => listPlugins());
 
 const spacesCmd = new Command('spaces').description('List configured spaces');
 spacesCmd
