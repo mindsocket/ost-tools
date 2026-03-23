@@ -38,7 +38,7 @@ function resolveConfigPaths(
  * Resolution order: config-adjacent ({configDir}/plugins/{name}) → npm (import(name)).
  */
 async function resolveExternalPlugin(name: string, configDir: string): Promise<OstToolsPlugin> {
-  const localPath = join(configDir, CONFIG_PLUGINS_DIR, name);
+  const localPath = resolve(join(configDir, CONFIG_PLUGINS_DIR, name));
   const module = existsSync(localPath) || existsSync(`${localPath}.ts`) ? await import(localPath) : await import(name);
   const plugin = (module as { default?: OstToolsPlugin }).default ?? (module as OstToolsPlugin);
   if (!plugin || typeof plugin.name !== 'string') {
