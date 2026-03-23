@@ -8,9 +8,13 @@
       "levels": [
         "vision",
         "mission",
-        { "type": "goal", "selfRef": true },
-        { "type": "opportunity", "selfRef": true },
-        { "type": "solution", "selfRef": true },
+        { "type": "goal", "selfRef": true, "matchers": ["Goals"] },
+        { "type": "opportunity", "selfRef": true, "matchers": ["Opportunities"] },
+        {
+          "type": "solution",
+          "selfRef": true,
+          "matchers": ["Solutions", "Potential solutions", "Solutions considered", "Possible solutions"]
+        },
         "experiment"
       ]
     },

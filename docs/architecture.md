@@ -16,13 +16,16 @@ flowchart LR
 
     subgraph read [Read]
         direction TB
-        plugin[Plugin parse hook<br>e.g. markdown plugin]
-        rdir[read-space-directory<br>read-space-on-a-page]
-        embed[parse-embedded<br>extract nodes from body]
+        subgraph plugin_layer [Plugin]
+            direction TB
+            plugin[Plugin parse hook<br>e.g. markdown plugin]
+            rdir[read-space-directory<br>read-space-on-a-page]
+            embed[parse-embedded<br>extract nodes from body]
+            plugin --> rdir
+            rdir --> embed
+        end
         resolve[resolveGraphEdges<br>wikilink → resolvedParents]
-        plugin --> rdir
-        rdir --> embed
-        embed --> resolve
+        plugin_layer --> resolve
     end
 
     nodes[(Space Nodes<br>schemaData · linkTargets<br>resolvedType · resolvedParents)]

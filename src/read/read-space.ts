@@ -1,5 +1,6 @@
 import { loadPlugins } from '../plugins/loader';
 import type { ReadSpaceResult, SpaceContext } from '../types';
+import { resolveGraphEdges } from './resolve-graph-edges';
 
 export async function readSpace(context: SpaceContext): Promise<ReadSpaceResult> {
   const pluginMap: Record<string, Record<string, unknown>> = context.space?.plugins ?? {};
@@ -12,8 +13,9 @@ export async function readSpace(context: SpaceContext): Promise<ReadSpaceResult>
       return {
         nodes: result.nodes,
         source: plugin.name,
+        parseIgnored: result.parseIgnored,
         diagnostics: result.diagnostics,
-        unresolvedRefs: result.unresolvedRefs,
+        unresolvedRefs: resolveGraphEdges(result.nodes, context.metadata),
       };
     }
   }

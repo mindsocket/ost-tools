@@ -24,7 +24,7 @@ describe('Schema validation', () => {
     beforeAll(async () => {
       const result = await readSpaceDirectory(makePluginContext(VALID_DIR));
       nodes = result.nodes;
-      unresolvedRefs = result.unresolvedRefs ?? [];
+      unresolvedRefs = resolveGraphEdges(nodes, metadata);
     });
 
     it('all 12 nodes pass schema validation', () => {
@@ -62,7 +62,7 @@ describe('Schema validation', () => {
     beforeAll(async () => {
       const result = await readSpaceDirectory(makePluginContext(INVALID_DIR));
       nodes = result.nodes;
-      unresolvedRefs = result.unresolvedRefs ?? [];
+      unresolvedRefs = resolveGraphEdges(nodes, metadata);
     });
 
     it('missing-status.md fails schema validation (no status field)', () => {

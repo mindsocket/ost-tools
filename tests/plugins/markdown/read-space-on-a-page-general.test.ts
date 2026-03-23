@@ -2,7 +2,11 @@ import { beforeAll, describe, expect, it } from 'bun:test';
 import { join } from 'node:path';
 import { readSpaceOnAPage } from '../../../src/plugins/markdown/read-space';
 import type { ParseResult } from '../../../src/plugins/util';
+import { resolveGraphEdges } from '../../../src/read/resolve-graph-edges';
+import { bundledSchemasDir, loadMetadata } from '../../../src/schema/schema';
 import { makePluginContext } from '../../helpers/context';
+
+const metadata = loadMetadata(join(bundledSchemasDir, 'general.json'));
 
 const VALID_PAGE = join(import.meta.dir, '../../fixtures/general/on-a-page-valid.md');
 const SKIP_PAGE = join(import.meta.dir, '../../fixtures/general/on-a-page-heading-skip.md');
@@ -12,6 +16,7 @@ describe('readSpaceOnAPage - on-a-page-valid.md (space_on_a_page)', () => {
 
   beforeAll(() => {
     result = readSpaceOnAPage(makePluginContext(VALID_PAGE));
+    resolveGraphEdges(result.nodes, metadata);
   });
 
   describe('heading type inference', () => {

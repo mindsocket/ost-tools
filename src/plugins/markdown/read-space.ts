@@ -2,7 +2,6 @@ import { readFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { Glob } from 'bun';
 import matter from 'gray-matter';
-import { resolveGraphEdges } from '../../read/resolve-graph-edges';
 import { resolveNodeType } from '../../schema/schema';
 import type { SpaceNode } from '../../types';
 import type { ParseResult, PluginContext } from '../util';
@@ -42,8 +41,7 @@ export function readSpaceOnAPage(context: PluginContext): ParseResult {
     metadata,
   });
 
-  const unresolvedRefs = resolveGraphEdges(nodes, metadata);
-  return { nodes, unresolvedRefs, diagnostics: { kind: 'page', preambleNodeCount, terminatedHeadings } };
+  return { nodes, diagnostics: { kind: 'page', preambleNodeCount, terminatedHeadings } };
 }
 
 export async function readSpaceDirectory(
@@ -113,6 +111,5 @@ export async function readSpaceDirectory(
     }
   }
 
-  const unresolvedRefs = resolveGraphEdges(nodes, metadata);
-  return { nodes, unresolvedRefs, parseIgnored: [...skipped, ...nonSpace], diagnostics: { kind: 'directory' } };
+  return { nodes, parseIgnored: [...skipped, ...nonSpace], diagnostics: { kind: 'directory' } };
 }

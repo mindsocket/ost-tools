@@ -1,5 +1,6 @@
 import type { SchemaObject } from 'ajv';
 import type { Config, SpaceConfig } from './config';
+import type { ParseResult } from './plugins/util';
 import type {
   MetadataContractHierarchyLevel,
   MetadataContractRelationship,
@@ -119,16 +120,11 @@ export type SchemaWithMetadata = SchemaObject & {
   metadata: SchemaMetadata;
 };
 
-export type ReadSpaceResult = {
-  nodes: SpaceNode[];
+export type ReadSpaceResult = ParseResult & {
   /** Name of the plugin that produced the nodes. */
   source: string;
-  /** Paths/items skipped during parsing. */
-  parseIgnored?: string[];
-  /** Plugin diagnostics: keyed scalar or list values. */
-  diagnostics?: Record<string, number | string | string[]>;
   /** Broken/invalid wikilink refs collected during graph edge resolution. */
-  unresolvedRefs?: UnresolvedRef[];
+  unresolvedRefs: UnresolvedRef[];
 };
 
 export type SpaceContext = {
