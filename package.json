@@ -6,7 +6,7 @@
   "type": "module",
   "license": "MIT",
   "bin": {
-    "ost-tools": "./dist/index.js"
+    "ost-tools": "dist/index.js"
   },
   "files": [
     "dist/",
