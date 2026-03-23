@@ -62,10 +62,11 @@ flowchart LR
 | Boundary | Data |
 |---|---|
 | Space → Read | Source files passed to the active plugin's `parse` hook |
-| Plugin → Core | `ParseResult` — raw `SpaceNode[]` (before graph resolution), diagnostics |
+| Core → Plugin | `PluginContext` — `SpaceContext` + validated plugin config |
+| Plugin → Core | `ParseResult` — raw `BaseNode[]` (before graph resolution), diagnostics |
 | Core (Read) → Nodes | `SpaceNode[]` — schemaData (canonical fields), resolvedType, resolvedParents (`ResolvedParentRef[]`), linkTargets — after `resolveGraphEdges` |
 | Schema → Read | Hierarchy levels + relationships (type names, edge fields, direction, cardinality), type aliases |
-| Schema → Validate | AJV validator, hierarchy rules, JSONata rule expressions |
+| Schema → Validate | `schemaValidator` (compiled AJV), `schemaRefRegistry` ($ref map), hierarchy rules, JSONata rule expressions |
 | Nodes → Output | Validated node set; output commands interpret as needed |
 | Config → Output | `fieldMap` (reverse) applied by template-sync for file field names |
 

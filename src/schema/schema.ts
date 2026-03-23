@@ -79,7 +79,10 @@ export function buildFullRegistry(schemaPath: string): Map<string, AnySchemaObje
   return schemaRefRegistry;
 }
 
-function compileValidator(targetSchema: AnySchemaObject, schemaRefRegistry: Map<string, AnySchemaObject>): ValidateFunction {
+function compileValidator(
+  targetSchema: AnySchemaObject,
+  schemaRefRegistry: Map<string, AnySchemaObject>,
+): ValidateFunction {
   const ajv = new Ajv();
   ajv.addKeyword({
     keyword: '$metadata',
@@ -280,7 +283,12 @@ function resolveRuleEntries(
           );
         }
         resolvedRules.push(
-          ...resolveRuleEntries(child as RuleEntry, { ...provider, schema: target.rootSchema }, schemaRefRegistry, stack),
+          ...resolveRuleEntries(
+            child as RuleEntry,
+            { ...provider, schema: target.rootSchema },
+            schemaRefRegistry,
+            stack,
+          ),
         );
       }
       return resolvedRules;
@@ -301,7 +309,12 @@ function resolveRuleEntries(
     }
 
     if (isObject(value)) {
-      return resolveRuleEntries(value as RuleEntry, { ...provider, schema: target.rootSchema }, schemaRefRegistry, stack);
+      return resolveRuleEntries(
+        value as RuleEntry,
+        { ...provider, schema: target.rootSchema },
+        schemaRefRegistry,
+        stack,
+      );
     }
 
     throw new Error(
