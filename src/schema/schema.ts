@@ -30,8 +30,8 @@ export function readRawSchema(schemaPath: string): AnySchemaObject {
  * Only loads "partial" schemas (starting with _) and an optional target file.
  */
 function buildSchemaRegistry(dir: string, targetFile?: string): Map<string, AnySchemaObject> {
-  const registry = new Map<string, AnySchemaObject>();
-  if (!existsSync(dir)) return registry;
+  const schemaRefRegistry = new Map<string, AnySchemaObject>();
+  if (!existsSync(dir)) return schemaRefRegistry;
   for (const file of readdirSync(dir)) {
     if (!file.endsWith('.json')) continue;
     const isPartial = file.startsWith('_');
@@ -39,9 +39,9 @@ function buildSchemaRegistry(dir: string, targetFile?: string): Map<string, AnyS
     if (!isPartial && !isTarget) continue;
 
     const schema = readRawSchema(join(dir, file));
-    if (typeof schema.$id === 'string') registry.set(schema.$id, schema);
+    if (typeof schema.$id === 'string') schemaRefRegistry.set(schema.$id, schema);
   }
-  return registry;
+  return schemaRefRegistry;
 }
 
 /**
@@ -55,16 +55,16 @@ export function buildFullRegistry(schemaPath: string): Map<string, AnySchemaObje
   const targetFile = basename(absPath);
   const targetDir = dirname(absPath);
 
-  const registry = new Map<string, AnySchemaObject>();
+  const schemaRefRegistry = new Map<string, AnySchemaObject>();
 
   // Layer 1: bundled schemas/ dir (partials only)
   for (const [id, schema] of buildSchemaRegistry(bundledSchemasDir)) {
-    registry.set(id, schema);
+    schemaRefRegistry.set(id, schema);
   }
 
   // Layer 2: schema's own dir (partials + target file)
   if (targetDir !== bundledSchemasDir) {
-    const bundledIds = new Set(registry.keys());
+    const bundledIds = new Set(schemaRefRegistry.keys());
     bundledIds.add(OST_TOOLS_SCHEMA_META_ID);
     for (const [id, schema] of buildSchemaRegistry(targetDir, targetFile)) {
       if (bundledIds.has(id)) {
@@ -72,14 +72,14 @@ export function buildFullRegistry(schemaPath: string): Map<string, AnySchemaObje
           `Schema collision: partial schema in ${targetDir} uses $id "${id}" which is reserved by a default schema. Please use a unique $id for local partials.`,
         );
       }
-      registry.set(id, schema);
+      schemaRefRegistry.set(id, schema);
     }
   }
 
-  return registry;
+  return schemaRefRegistry;
 }
 
-function compileValidator(targetSchema: AnySchemaObject, registry: Map<string, AnySchemaObject>): ValidateFunction {
+function compileValidator(targetSchema: AnySchemaObject, schemaRefRegistry: Map<string, AnySchemaObject>): ValidateFunction {
   const ajv = new Ajv();
   ajv.addKeyword({
     keyword: '$metadata',
@@ -92,7 +92,7 @@ function compileValidator(targetSchema: AnySchemaObject, registry: Map<string, A
   ajv.addSchema(metaSchema, OST_TOOLS_SCHEMA_META_ID);
 
   // Register all except target schema (AJV compiles targetSchema explicitly)
-  for (const [id, schema] of registry) {
+  for (const [id, schema] of schemaRefRegistry) {
     if (id === targetSchema.$id || id === OST_TOOLS_SCHEMA_META_ID) continue;
     ajv.addSchema(schema);
   }
@@ -133,7 +133,7 @@ function readTopLevelMetadata(schema: AnySchemaObject): MetadataContract | undef
 function resolveRefTargetForRule(
   ref: string,
   currentRootSchema: AnySchemaObject,
-  registry: Map<string, AnySchemaObject>,
+  schemaRefRegistry: Map<string, AnySchemaObject>,
 ): { value: unknown; rootSchema: AnySchemaObject; refKey: string } {
   if (ref.startsWith('#')) {
     const pointer = ref.slice(1);
@@ -148,7 +148,7 @@ function resolveRefTargetForRule(
   const hashIndex = ref.indexOf('#');
   const baseId = hashIndex >= 0 ? ref.slice(0, hashIndex) : ref;
   const pointer = hashIndex >= 0 ? ref.slice(hashIndex + 1) : '';
-  const externalSchema = registry.get(baseId);
+  const externalSchema = schemaRefRegistry.get(baseId);
   if (!externalSchema) {
     throw new Error(`Cannot resolve external $ref: ${ref}`);
   }
@@ -185,7 +185,7 @@ function collectExternalRefIdsInOrder(schema: unknown): string[] {
 
 function collectMetadataProviders(
   rootSchema: AnySchemaObject,
-  registry: Map<string, AnySchemaObject>,
+  schemaRefRegistry: Map<string, AnySchemaObject>,
 ): MetadataProvider[] {
   const providers: MetadataProvider[] = [];
   const visitedSchemaIds = new Set<string>();
@@ -196,7 +196,7 @@ function collectMetadataProviders(
       if (visitedSchemaIds.has(schemaId)) continue;
       visitedSchemaIds.add(schemaId);
 
-      const referencedSchema = registry.get(schemaId);
+      const referencedSchema = schemaRefRegistry.get(schemaId);
       if (!referencedSchema) continue;
 
       walk(referencedSchema);
@@ -247,7 +247,7 @@ function isMetadataRule(value: unknown): value is Rule {
 function resolveRuleEntries(
   ruleEntry: RuleEntry,
   provider: MetadataProvider,
-  registry: Map<string, AnySchemaObject>,
+  schemaRefRegistry: Map<string, AnySchemaObject>,
   stack: Set<string>,
 ): Rule[] {
   if (isMetadataRule(ruleEntry)) {
@@ -258,7 +258,7 @@ function resolveRuleEntries(
     throw new Error(`Invalid rule entry in metadata from "${provider.schemaId}".`);
   }
 
-  const target = resolveRefTargetForRule(ruleEntry.$ref, provider.schema, registry);
+  const target = resolveRefTargetForRule(ruleEntry.$ref, provider.schema, schemaRefRegistry);
   if (stack.has(target.refKey)) {
     throw new Error(
       `Cyclic rule import detected while loading metadata from "${provider.schemaId}": ${[...stack, target.refKey].join(
@@ -280,7 +280,7 @@ function resolveRuleEntries(
           );
         }
         resolvedRules.push(
-          ...resolveRuleEntries(child as RuleEntry, { ...provider, schema: target.rootSchema }, registry, stack),
+          ...resolveRuleEntries(child as RuleEntry, { ...provider, schema: target.rootSchema }, schemaRefRegistry, stack),
         );
       }
       return resolvedRules;
@@ -301,7 +301,7 @@ function resolveRuleEntries(
     }
 
     if (isObject(value)) {
-      return resolveRuleEntries(value as RuleEntry, { ...provider, schema: target.rootSchema }, registry, stack);
+      return resolveRuleEntries(value as RuleEntry, { ...provider, schema: target.rootSchema }, schemaRefRegistry, stack);
     }
 
     throw new Error(
@@ -321,8 +321,8 @@ function areRulesEquivalent(left: Rule, right: Rule): boolean {
   return isDeepStrictEqual(normalizeRule(left), normalizeRule(right));
 }
 
-function extractMetadata(schema: AnySchemaObject, registry: Map<string, AnySchemaObject>): SchemaMetadata {
-  const metadataProviders = collectMetadataProviders(schema, registry);
+function extractMetadata(schema: AnySchemaObject, schemaRefRegistry: Map<string, AnySchemaObject>): SchemaMetadata {
+  const metadataProviders = collectMetadataProviders(schema, schemaRefRegistry);
 
   let hierarchyProvider: string | undefined;
   let mergedHierarchy: MetadataContract['hierarchy'] | undefined;
@@ -351,7 +351,7 @@ function extractMetadata(schema: AnySchemaObject, registry: Map<string, AnySchem
 
     if (provider.metadata.rules) {
       for (const entry of provider.metadata.rules) {
-        const resolvedRules = resolveRuleEntries(entry, provider, registry, new Set());
+        const resolvedRules = resolveRuleEntries(entry, provider, schemaRefRegistry, new Set());
         for (const incomingRule of resolvedRules) {
           const existingRule = mergedRules.get(incomingRule.id);
           if (!existingRule) {
@@ -421,17 +421,20 @@ export function loadMetadata(schemaPath: string): SchemaMetadata {
 
 export interface LoadedSchema {
   schema: SchemaWithMetadata;
-  registry: Map<string, AnySchemaObject>;
-  validator: ValidateFunction;
+  schemaRefRegistry: Map<string, AnySchemaObject>;
+  schemaValidator: ValidateFunction;
 }
 
 export function loadSchema(schemaPath: string): LoadedSchema {
   const rawSchema = readRawSchema(schemaPath);
-  const registry = buildFullRegistry(schemaPath);
-  const schema = { ...rawSchema, metadata: extractMetadata(rawSchema, registry) } as unknown as SchemaWithMetadata;
+  const schemaRefRegistry = buildFullRegistry(schemaPath);
+  const schema = {
+    ...rawSchema,
+    metadata: extractMetadata(rawSchema, schemaRefRegistry),
+  } as unknown as SchemaWithMetadata;
   return {
     schema,
-    registry,
-    validator: compileValidator(rawSchema, registry),
+    schemaRefRegistry,
+    schemaValidator: compileValidator(rawSchema, schemaRefRegistry),
   };
 }

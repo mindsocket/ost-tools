@@ -1,4 +1,4 @@
-import type { AnySchemaObject, SchemaObject } from 'ajv';
+import type { AnySchemaObject, SchemaObject, ValidateFunction } from 'ajv';
 import type { Config, SpaceConfig } from './config';
 import type {
   MetadataContractHierarchyLevel,
@@ -152,12 +152,12 @@ export type SpaceContext = {
   config: Config;
   /** Absolute path to the resolved schema. */
   resolvedSchemaPath: string;
-  /** Parsed schema metadata. */
-  metadata: SchemaMetadata;
   /** Full loaded schema with metadata embedded. */
   schema: SchemaWithMetadata;
-  /** Registry for $ref resolution in schema. */
-  registry: Map<string, AnySchemaObject>;
+  /** Registry for resolving $ref in schema (maps $ref IDs to schema objects). */
+  schemaRefRegistry: Map<string, AnySchemaObject>;
+  /** Compiled AJV validator for the schema. */
+  schemaValidator: ValidateFunction;
   /** Directory of the config file that defines this space. Used for resolving relative paths in plugin configs. */
   configDir: string;
 };

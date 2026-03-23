@@ -84,7 +84,7 @@ function mergeSchemaObjects(base: AnySchemaObject, overlay: AnySchemaObject): An
 function resolveRefTarget(
   ref: string,
   currentRootSchema: AnySchemaObject,
-  registry: Map<string, AnySchemaObject>,
+  schemaRefRegistry: Map<string, AnySchemaObject>,
 ): { schema: AnySchemaObject; rootSchema: AnySchemaObject; refKey: string } {
   if (ref.startsWith('#')) {
     const pointer = ref.slice(1);
@@ -100,7 +100,7 @@ function resolveRefTarget(
   const baseId = hashIndex >= 0 ? ref.slice(0, hashIndex) : ref;
   const pointer = hashIndex >= 0 ? ref.slice(hashIndex + 1) : '';
 
-  const externalSchema = registry.get(baseId);
+  const externalSchema = schemaRefRegistry.get(baseId);
   if (!externalSchema) {
     throw new Error(`Cannot resolve external $ref: ${ref}`);
   }
@@ -115,7 +115,7 @@ function resolveRefTarget(
 function resolveRefWithContext(
   def: AnySchemaObject | undefined,
   rootSchema: AnySchemaObject,
-  registry: Map<string, AnySchemaObject>,
+  schemaRefRegistry: Map<string, AnySchemaObject>,
   stack: Set<string>,
 ): ResolvedSchema | undefined {
   if (!def) return undefined;
@@ -124,13 +124,13 @@ function resolveRefWithContext(
     return { schema: def, rootSchema };
   }
 
-  const target = resolveRefTarget(ref, rootSchema, registry);
+  const target = resolveRefTarget(ref, rootSchema, schemaRefRegistry);
   if (stack.has(target.refKey)) {
     throw new Error(`Cyclic $ref detected: ${[...stack, target.refKey].join(' -> ')}`);
   }
 
   stack.add(target.refKey);
-  const resolvedTarget = resolveRefWithContext(target.schema, target.rootSchema, registry, stack);
+  const resolvedTarget = resolveRefWithContext(target.schema, target.rootSchema, schemaRefRegistry, stack);
   stack.delete(target.refKey);
 
   if (!resolvedTarget) return undefined;
@@ -157,11 +157,11 @@ function resolveRefWithContext(
 function flattenAllOf(
   def: AnySchemaObject | undefined,
   rootSchema: AnySchemaObject,
-  registry: Map<string, AnySchemaObject>,
+  schemaRefRegistry: Map<string, AnySchemaObject>,
   stack: Set<string>,
   visited = new Set<string>(),
 ): ResolvedSchema[] {
-  const resolved = resolveRefWithContext(def, rootSchema, registry, stack);
+  const resolved = resolveRefWithContext(def, rootSchema, schemaRefRegistry, stack);
   if (!resolved) return [];
 
   const schemaId = typeof resolved.schema.$id === 'string' ? resolved.schema.$id : undefined;
@@ -174,7 +174,7 @@ function flattenAllOf(
   const parts: ResolvedSchema[] = [];
   const allOf = asArray<AnySchemaObject>(resolved.schema.allOf);
   for (const sub of allOf) {
-    parts.push(...flattenAllOf(sub, resolved.rootSchema, registry, stack, visited));
+    parts.push(...flattenAllOf(sub, resolved.rootSchema, schemaRefRegistry, stack, visited));
   }
 
   if (schemaId) visited.delete(schemaId);
@@ -191,9 +191,9 @@ function flattenAllOf(
 export function resolveRef(
   propDef: AnySchemaObject | undefined,
   schema: AnySchemaObject,
-  registry: Map<string, AnySchemaObject>,
+  schemaRefRegistry: Map<string, AnySchemaObject>,
 ): AnySchemaObject | undefined {
-  return resolveRefWithContext(propDef, schema, registry, new Set())?.schema;
+  return resolveRefWithContext(propDef, schema, schemaRefRegistry, new Set())?.schema;
 }
 
 /**
@@ -203,11 +203,11 @@ export function resolveRef(
 export function mergeVariantProperties(
   variant: AnySchemaObject,
   schema: AnySchemaObject,
-  registry: Map<string, AnySchemaObject>,
+  schemaRefRegistry: Map<string, AnySchemaObject>,
 ): { properties: Record<string, AnySchemaObject>; required: string[] } {
   const properties: Record<string, AnySchemaObject> = {};
   const requiredSet = new Set<string>();
-  const fragments = flattenAllOf(variant, schema, registry, new Set());
+  const fragments = flattenAllOf(variant, schema, schemaRefRegistry, new Set());
 
   for (const fragment of fragments) {
     const fragmentProps = isObject(fragment.schema.properties)
@@ -216,7 +216,7 @@ export function mergeVariantProperties(
 
     if (fragmentProps) {
       for (const [key, value] of Object.entries(fragmentProps)) {
-        properties[key] = resolveRef(value as AnySchemaObject, fragment.rootSchema, registry) ?? value;
+        properties[key] = resolveRef(value as AnySchemaObject, fragment.rootSchema, schemaRefRegistry) ?? value;
       }
     }
 

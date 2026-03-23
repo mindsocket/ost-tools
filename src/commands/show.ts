@@ -3,7 +3,7 @@ import type { SpaceContext, SpaceNode } from '../types';
 import { classifyNodes } from '../util/graph-helpers';
 
 export async function show(context: SpaceContext) {
-  const levels = context.metadata.hierarchy?.levels ?? [];
+  const levels = context.schema.metadata.hierarchy?.levels ?? [];
 
   const { nodes } = await readSpace(context);
 

@@ -6,7 +6,7 @@
  *   import type { OstToolsPlugin, PluginContext, ParseResult } from 'ost-tools/plugin-api';
  */
 
-export type { AnySchemaObject, SchemaObject } from 'ajv';
+export type { AnySchemaObject, SchemaObject, ValidateFunction } from 'ajv';
 export type {
   OstToolsPlugin,
   ParseHook,

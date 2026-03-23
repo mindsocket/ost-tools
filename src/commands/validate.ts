@@ -3,7 +3,7 @@ import type { ErrorObject } from 'ajv';
 import chokidar from 'chokidar';
 import { getConfigSourceFiles } from '../config';
 import { readSpace } from '../read/read-space';
-import { bundledSchemasDir, loadSchema } from '../schema/schema';
+import { bundledSchemasDir } from '../schema/schema';
 import { validateGraph } from '../schema/validate-graph';
 import { validateRules } from '../schema/validate-rules';
 import type { GraphViolation, RuleViolation, SchemaWithMetadata, SpaceContext } from '../types';
@@ -34,7 +34,7 @@ interface ValidationResult {
 function formatErrors(
   errors: ErrorObject[],
   schema: SchemaWithMetadata,
-  registry: Parameters<typeof extractEntityInfo>[1],
+  schemaRefRegistry: Parameters<typeof extractEntityInfo>[1],
   nodeData: Record<string, unknown>,
 ): FormattedError[] {
   const formatted: FormattedError[] = [];
@@ -58,7 +58,7 @@ function formatErrors(
       hasOneOfContext = Array.isArray(schema.oneOf);
 
       if (hasOneOfContext) {
-        const entities = extractEntityInfo(schema.oneOf as unknown[], registry, schema);
+        const entities = extractEntityInfo(schema.oneOf as unknown[], schemaRefRegistry, schema);
         const validTypes = entities.map((e) => e.type).sort();
 
         if (validTypes.length > 0) {
@@ -133,9 +133,7 @@ function formatErrors(
 }
 
 export async function validate(context: SpaceContext): Promise<number> {
-  const schemaPath = context.resolvedSchemaPath;
-
-  const { schema, registry, validator } = loadSchema(schemaPath);
+  const { schema, schemaRefRegistry, schemaValidator } = context;
   const metadata = schema.metadata;
 
   const readResult = await readSpace(context);
@@ -154,7 +152,7 @@ export async function validate(context: SpaceContext): Promise<number> {
   };
 
   for (const node of nodes) {
-    const valid = validator(node.schemaData);
+    const valid = schemaValidator(node.schemaData);
 
     if (valid) {
       result.validCount++;
@@ -162,7 +160,7 @@ export async function validate(context: SpaceContext): Promise<number> {
       result.nodeErrorCount++;
       result.nodeErrors.push({
         file: node.label,
-        errors: validator.errors || [],
+        errors: schemaValidator.errors || [],
         nodeData: node.schemaData as Record<string, unknown>,
       });
     }
@@ -245,7 +243,7 @@ export async function validate(context: SpaceContext): Promise<number> {
     console.log(`\nSchema validation errors:`);
     result.nodeErrors.forEach(({ file, errors, nodeData }) => {
       console.log(`\n   ${file}:`);
-      const formatted = formatErrors(errors, schema, registry, nodeData);
+      const formatted = formatErrors(errors, schema, schemaRefRegistry, nodeData);
       formatted.forEach(({ message }) => {
         console.log(`      ${message}`);
       });

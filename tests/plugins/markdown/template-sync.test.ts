@@ -69,10 +69,10 @@ describe('template-sync - generateNewContent', () => {
     ['assumption', assumptionVariant],
   ]);
 
-  const registry = new Map<string, AnySchemaObject>();
+  const schemaRefRegistry = new Map<string, AnySchemaObject>();
 
   it('generates relationship stubs for new templates with examples', () => {
-    const content = generateNewContent('opportunity', variant, schema, registry, allVariants, '');
+    const content = generateNewContent('opportunity', variant, schema, schemaRefRegistry, allVariants, '');
 
     expect(content).toContain('### Assumptions');
     expect(content).toContain('| assumption | status |');
@@ -84,7 +84,7 @@ describe('template-sync - generateNewContent', () => {
 
   it('is idempotent and does not duplicate stubs', () => {
     const existingBody = '\n### Assumptions\n\n| assumption | status |\n| ---|---|\n| existing | active |\n';
-    const content = generateNewContent('opportunity', variant, schema, registry, allVariants, existingBody);
+    const content = generateNewContent('opportunity', variant, schema, schemaRefRegistry, allVariants, existingBody);
 
     const assumptionMatches = content.match(/### Assumptions/g);
     expect(assumptionMatches).toHaveLength(1);

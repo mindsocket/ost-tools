@@ -9,10 +9,10 @@ const ROOT_SCHEMA_PATH = join(import.meta.dir, '..', 'fixtures/schema-refs/root.
 describe('schema refs', () => {
   it('resolves external refs transitively across multiple files', () => {
     const schema = readRawSchema(ROOT_SCHEMA_PATH) as SchemaObject;
-    const registry = buildFullRegistry(ROOT_SCHEMA_PATH) as Map<string, AnySchemaObject>;
+    const schemaRefRegistry = buildFullRegistry(ROOT_SCHEMA_PATH) as Map<string, AnySchemaObject>;
     const variant = schema.oneOf?.[0] as AnySchemaObject;
 
-    const { properties, required } = mergeVariantProperties(variant, schema, registry);
+    const { properties, required } = mergeVariantProperties(variant, schema, schemaRefRegistry);
 
     expect((properties.mood as { enum?: string[] }).enum).toEqual(['happy', 'sad']);
     expect((properties.status as { enum?: string[] }).enum).toContain('active');
@@ -23,9 +23,9 @@ describe('schema refs', () => {
 
   it('resolves bundled refs from local schemas', () => {
     const schema = readRawSchema(ROOT_SCHEMA_PATH) as SchemaObject;
-    const registry = buildFullRegistry(ROOT_SCHEMA_PATH) as Map<string, AnySchemaObject>;
+    const schemaRefRegistry = buildFullRegistry(ROOT_SCHEMA_PATH) as Map<string, AnySchemaObject>;
 
-    const status = resolveRef({ $ref: 'ost-tools://_ost_tools_base#/$defs/status' }, schema, registry) as {
+    const status = resolveRef({ $ref: 'ost-tools://_ost_tools_base#/$defs/status' }, schema, schemaRefRegistry) as {
       enum?: string[];
     };
 
@@ -46,13 +46,13 @@ describe('schema refs', () => {
       properties: { fromB: { type: 'number' } },
     };
 
-    const registry = new Map<string, AnySchemaObject>([
+    const schemaRefRegistry = new Map<string, AnySchemaObject>([
       ['http://example.com/A', schemaA],
       ['http://example.com/B', schemaB],
     ]);
 
     // This should not throw or infinite loop - it should detect the cycle and return a result
-    const { properties, required } = mergeVariantProperties(schemaA, schemaA, registry);
+    const { properties, required } = mergeVariantProperties(schemaA, schemaA, schemaRefRegistry);
 
     // Both properties should be present despite the cycle
     expect(properties.fromA).toBeDefined();

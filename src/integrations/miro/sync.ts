@@ -20,7 +20,10 @@ export async function miroSync(context: SpaceContext, options: SyncOptions): Pro
     process.exit(1);
   }
 
-  const { space, metadata } = context;
+  const {
+    space,
+    schema: { metadata },
+  } = context;
 
   // 1. Resolve board
   if (!space.miroBoardId) {

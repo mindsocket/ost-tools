@@ -1,7 +1,7 @@
 import { dirname, join } from 'node:path';
 import type { Config, SpaceConfig } from '../../src/config';
 import type { PluginContext } from '../../src/plugins/util';
-import { bundledSchemasDir, loadMetadata } from '../../src/schema/schema';
+import { bundledSchemasDir, loadSchema } from '../../src/schema/schema';
 import type { SpaceContext } from '../../src/types';
 
 const DEFAULT_SCHEMA = join(bundledSchemasDir, 'general.json');
@@ -15,11 +15,14 @@ export function makeSpaceContext(
   const resolved = schemaPath ?? DEFAULT_SCHEMA;
   const space: SpaceConfig = { name: 'test', path, plugins };
   const config: Config = { spaces: [space] };
+  const { schema, schemaRefRegistry, schemaValidator } = loadSchema(resolved);
   return {
     space,
     config,
     resolvedSchemaPath: resolved,
-    metadata: loadMetadata(resolved),
+    schema,
+    schemaRefRegistry,
+    schemaValidator,
     configDir: dirname(path),
   };
 }

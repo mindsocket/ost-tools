@@ -23,10 +23,17 @@ export function buildSpaceContext(spaceName: string): SpaceContext {
     process.exit(1);
   }
   const resolvedSchemaPath = resolveSchema(config, space);
-  const { schema, registry } = loadSchema(resolvedSchemaPath);
-  const metadata = schema.metadata;
+  const { schema, schemaRefRegistry, schemaValidator } = loadSchema(resolvedSchemaPath);
   const configDir = getSpaceConfigDir(space.name);
-  return { space, config, resolvedSchemaPath, metadata, schema, registry, configDir };
+  return {
+    space,
+    config,
+    resolvedSchemaPath,
+    schema,
+    schemaRefRegistry,
+    schemaValidator,
+    configDir,
+  };
 }
 
 const require = createRequire(import.meta.url);

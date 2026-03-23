@@ -32,11 +32,11 @@ function withEnumPlaceholders(
   example: Record<string, string | number | boolean>,
   properties: Record<string, AnySchemaObject>,
   schema: SchemaWithMetadata,
-  registry: Map<string, AnySchemaObject>,
+  schemaRefRegistry: Map<string, AnySchemaObject>,
 ): Record<string, string | number | boolean> {
   return Object.fromEntries(
     Object.entries(example).map(([key, value]) => {
-      const def = resolveRef(properties[key], schema, registry);
+      const def = resolveRef(properties[key], schema, schemaRefRegistry);
       return def && 'enum' in def ? [key, enumPlaceholder(def)] : [key, value];
     }),
   );
@@ -46,9 +46,9 @@ function commentedHint(
   fieldName: string,
   propDef: AnySchemaObject | undefined,
   schema: SchemaWithMetadata,
-  registry: Map<string, AnySchemaObject>,
+  schemaRefRegistry: Map<string, AnySchemaObject>,
 ): string {
-  const def = resolveRef(propDef, schema, registry);
+  const def = resolveRef(propDef, schema, schemaRefRegistry);
   let value: string;
   const defTyped = def as
     | {
@@ -74,7 +74,7 @@ function commentedHint(
 
 export function getTypeVariants(
   schema: SchemaWithMetadata,
-  registry: Map<string, AnySchemaObject>,
+  schemaRefRegistry: Map<string, AnySchemaObject>,
 ): Map<string, TypeVariant> {
   const map = new Map<string, TypeVariant>();
   for (const variant of schema.oneOf) {
@@ -84,7 +84,7 @@ export function getTypeVariants(
 
     const required = (variant.required as string[]).filter((k: string) => k !== 'type' && !DERIVED_FIELDS.has(k));
     const allProperties = Object.fromEntries(
-      Object.entries(mergeVariantProperties(variant, schema, registry).properties).filter(
+      Object.entries(mergeVariantProperties(variant, schema, schemaRefRegistry).properties).filter(
         ([k]) => k !== 'type' && !DERIVED_FIELDS.has(k),
       ),
     );
@@ -119,7 +119,7 @@ export function generateNewContent(
   nodeType: string,
   variant: TypeVariant,
   schema: SchemaWithMetadata,
-  registry: Map<string, AnySchemaObject>,
+  schemaRefRegistry: Map<string, AnySchemaObject>,
   allVariants: Map<string, TypeVariant>,
   body = '\nTODO\n',
   fieldMap: Record<string, string> = {},
@@ -131,7 +131,7 @@ export function generateNewContent(
   const canonicalToFile = invertFieldMap(fieldMap);
   const toFileKey = (k: string) => canonicalToFile[k] ?? k;
   const toCanonicalKey = (k: string) => fieldMap[k] ?? k;
-  const exampleWithPlaceholders = withEnumPlaceholders(example, properties, schema, registry);
+  const exampleWithPlaceholders = withEnumPlaceholders(example, properties, schema, schemaRefRegistry);
   const remappedExample = Object.fromEntries(
     Object.entries(exampleWithPlaceholders).map(([k, v]) => [toFileKey(k), v]),
   );
@@ -145,7 +145,7 @@ export function generateNewContent(
     if (match) {
       const fileKey = match[1]!.trim();
       const canonicalKey = toCanonicalKey(fileKey);
-      const propDef = resolveRef(properties[canonicalKey], schema, registry);
+      const propDef = resolveRef(properties[canonicalKey], schema, schemaRefRegistry);
       const propDescription = (propDef as { description?: string })?.description;
       if (propDescription) {
         return `${line}  # ${propDescription}`;
@@ -160,7 +160,7 @@ export function generateNewContent(
 
   const hints = optional
     .filter((field) => !exampleKeys.has(field))
-    .map((field) => commentedHint(toFileKey(field), properties[field], schema, registry));
+    .map((field) => commentedHint(toFileKey(field), properties[field], schema, schemaRefRegistry));
 
   const newFrontmatter = hints.length > 0 ? `${frontmatterYaml}\n${hints.join('\n')}` : frontmatterYaml;
 
@@ -255,9 +255,9 @@ export async function templateSync(context: PluginContext, options: TemplateSync
     console.error('Error: templateDir not set in markdown config for this space');
     process.exit(1);
   }
-  const { schema, registry } = context;
+  const { schema, schemaRefRegistry } = context;
 
-  const typeVariants = getTypeVariants(schema, registry);
+  const typeVariants = getTypeVariants(schema, schemaRefRegistry);
   const matchedTypes = new Set<string>();
 
   const files = await Array.fromAsync(new Glob('*.md').scan({ cwd: templateDir, absolute: true }));
@@ -298,7 +298,7 @@ export async function templateSync(context: PluginContext, options: TemplateSync
       console.log(`⚠  ${filename}: type "${nodeType}" should be named "${expectedFilename}"`);
     }
 
-    const newContent = generateNewContent(nodeType, variant, schema, registry, typeVariants, body, fieldMap);
+    const newContent = generateNewContent(nodeType, variant, schema, schemaRefRegistry, typeVariants, body, fieldMap);
 
     if (newContent === content) {
       console.log(`✓  ${filename}`);
@@ -345,7 +345,15 @@ export async function templateSync(context: PluginContext, options: TemplateSync
     if (options.createMissing) {
       for (const type of missingTypes) {
         const variant = typeVariants.get(type)!;
-        const newContent = generateNewContent(type, variant, schema, registry, typeVariants, undefined, fieldMap);
+        const newContent = generateNewContent(
+          type,
+          variant,
+          schema,
+          schemaRefRegistry,
+          typeVariants,
+          undefined,
+          fieldMap,
+        );
         const newFilename = `${templatePrefix}${type}.md`;
         const newFilePath = join(templateDir, newFilename);
 

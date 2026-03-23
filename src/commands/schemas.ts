@@ -35,11 +35,11 @@ interface EntityInfo {
 
 function extractEntities(
   oneOf: unknown[],
-  registry: Map<string, AnySchemaObject>,
+  schemaRefRegistry: Map<string, AnySchemaObject>,
   schema: SchemaWithMetadata,
 ): EntityVariant[] {
   return oneOf.map((entry) => {
-    const { properties, required } = mergeVariantProperties(entry as AnySchemaObject, schema, registry);
+    const { properties, required } = mergeVariantProperties(entry as AnySchemaObject, schema, schemaRefRegistry);
     const typeDef = properties.type as AnySchemaObject | undefined;
     let types: string[] = [];
     if (typeDef?.const) types = [String(typeDef.const)];
@@ -59,12 +59,12 @@ function extractEntities(
  */
 export function extractEntityInfo(
   oneOf: unknown[],
-  registry: Map<string, AnySchemaObject>,
+  schemaRefRegistry: Map<string, AnySchemaObject>,
   schema: SchemaWithMetadata,
 ): EntityInfo[] {
   const result: EntityInfo[] = [];
   for (const entry of oneOf) {
-    const { properties, required } = mergeVariantProperties(entry as AnySchemaObject, schema, registry);
+    const { properties, required } = mergeVariantProperties(entry as AnySchemaObject, schema, schemaRefRegistry);
     const typeDef = properties.type as AnySchemaObject | undefined;
     if (typeDef?.const) {
       result.push({
@@ -85,8 +85,12 @@ export function extractEntityInfo(
   return result;
 }
 
-function showEntities(oneOf: unknown[], registry: Map<string, AnySchemaObject>, schema: SchemaWithMetadata): void {
-  const entities = extractEntities(oneOf, registry, schema);
+function showEntities(
+  oneOf: unknown[],
+  schemaRefRegistry: Map<string, AnySchemaObject>,
+  schema: SchemaWithMetadata,
+): void {
+  const entities = extractEntities(oneOf, schemaRefRegistry, schema);
   console.log('\nEntities:');
   for (const { types, properties, required } of entities) {
     const label = types.length > 0 ? types.join(', ') : '(unknown)';
@@ -161,7 +165,7 @@ function showMetadata(metadata: SchemaMetadata): void {
   }
 }
 
-function showRegistry(schemaPath: string, registry: Map<string, AnySchemaObject>): void {
+function showRegistry(schemaPath: string, schemaRefRegistry: Map<string, AnySchemaObject>): void {
   const bundledIds = new Set<string>();
   if (existsSync(bundledSchemasDir)) {
     for (const file of readdirSync(bundledSchemasDir).filter((f) => f.endsWith('.json'))) {
@@ -170,7 +174,7 @@ function showRegistry(schemaPath: string, registry: Map<string, AnySchemaObject>
     }
   }
   console.log(`\nRegistry (${schemaPath}):`);
-  for (const [id] of registry) {
+  for (const [id] of schemaRefRegistry) {
     console.log(`  [${bundledIds.has(id) ? 'bundled' : 'local'}]  ${id}`);
   }
 }
@@ -304,11 +308,11 @@ export function showSchema(
     return;
   }
 
-  const { schema, registry } = loadSchema(schemaPath);
+  const { schema, schemaRefRegistry } = loadSchema(schemaPath);
 
   // Handle --mermaid-erd: generate ERD and exit
   if (options.mermaidErd) {
-    const entityInfo = Array.isArray(schema.oneOf) ? extractEntityInfo(schema.oneOf, registry, schema) : [];
+    const entityInfo = Array.isArray(schema.oneOf) ? extractEntityInfo(schema.oneOf, schemaRefRegistry, schema) : [];
     const mermaid = generateMermaidErd(schema.metadata, entityInfo);
     process.stdout.write(mermaid);
     return;
@@ -321,7 +325,7 @@ export function showSchema(
   showMetadata(schema.metadata);
 
   if (Array.isArray(schema.oneOf)) {
-    showEntities(schema.oneOf, registry, schema);
+    showEntities(schema.oneOf, schemaRefRegistry, schema);
   }
 
   const defs = schema.$defs as Record<string, unknown> | undefined;
@@ -336,5 +340,5 @@ export function showSchema(
     }
   }
 
-  showRegistry(schemaPath, registry);
+  showRegistry(schemaPath, schemaRefRegistry);
 }
