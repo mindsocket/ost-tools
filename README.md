@@ -278,8 +278,8 @@ bun link
 
 ### Releasing
 ```bash
-bun pm version patch   # or minor / major
-git push --follow-tags
+npm login             # authenticate with npm registry if needed
+bun pm version patch  # or minor / major — runs lint, tests, then pushes with tags
 npm publish
 ```
 
