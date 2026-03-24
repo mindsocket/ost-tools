@@ -36,11 +36,7 @@ export type RelationshipsDirective = {
   field?: string;
 };
 
-export type IncludeDirective =
-  | AncestorsDirective
-  | DescendantsDirective
-  | SiblingsDirective
-  | RelationshipsDirective;
+export type IncludeDirective = AncestorsDirective | DescendantsDirective | SiblingsDirective | RelationshipsDirective;
 
 // ---------------------------------------------------------------------------
 // Parser
@@ -64,7 +60,10 @@ export type IncludeDirective =
  * Range syntax (type..type) is reserved for a future release.
  */
 export function parseIncludeSpec(spec: string): IncludeDirective[] {
-  const items = spec.split(',').map((s) => s.trim()).filter(Boolean);
+  const items = spec
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
   if (items.length === 0) throw new Error('SELECT spec must not be empty');
   return items.map(parseDirective);
 }
@@ -84,9 +83,7 @@ function parseDirective(item: string): IncludeDirective {
   if (name === 'ancestors' || name === 'descendants') {
     if (!arg) return { kind: name };
     if (arg.includes('..')) {
-      throw new Error(
-        `Range syntax "${arg}" in SELECT is not yet supported. Use a plain type name for now.`,
-      );
+      throw new Error(`Range syntax "${arg}" in SELECT is not yet supported. Use a plain type name for now.`);
     }
     if (!/^\w+$/.test(arg)) throw new Error(`Invalid type name in ${name}(): "${arg}"`);
     return { kind: name, typeFilter: arg };
@@ -106,9 +103,7 @@ function parseDirective(item: string): IncludeDirective {
     throw new Error(`Relationship spec "${arg}" has too many parts (max 3: parent:field:child)`);
   }
 
-  throw new Error(
-    `Unknown include directive "${item}". Expected: ancestors, descendants, siblings, relationships`,
-  );
+  throw new Error(`Unknown include directive "${item}". Expected: ancestors, descendants, siblings, relationships`);
 }
 
 // ---------------------------------------------------------------------------

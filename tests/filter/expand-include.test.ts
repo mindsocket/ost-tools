@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
-import { expandInclude, parseIncludeSpec } from '../../src/filter/expand-include';
 import { augmentNode, buildChildrenIndex } from '../../src/filter/augment-nodes';
+import { expandInclude, parseIncludeSpec } from '../../src/filter/expand-include';
 import type { SpaceNode } from '../../src/types';
 import { makeParentRef } from '../test-helpers';
 
@@ -22,12 +22,7 @@ function makeNode(title: string, type: string, extra: Record<string, unknown> = 
 function buildContext(nodes: SpaceNode[]) {
   const nodeIndex = new Map(nodes.map((n) => [n.schemaData.title as string, n]));
   const childrenIndex = buildChildrenIndex(nodes);
-  const augmented = new Map(
-    nodes.map((n) => [
-      n.schemaData.title as string,
-      augmentNode(n, nodeIndex, childrenIndex),
-    ]),
-  );
+  const augmented = new Map(nodes.map((n) => [n.schemaData.title as string, augmentNode(n, nodeIndex, childrenIndex)]));
   return { nodeIndex, childrenIndex, augmented };
 }
 
@@ -49,9 +44,7 @@ describe('parseIncludeSpec', () => {
   });
 
   it('parses descendants with type filter', () => {
-    expect(parseIncludeSpec('descendants(solution)')).toEqual([
-      { kind: 'descendants', typeFilter: 'solution' },
-    ]);
+    expect(parseIncludeSpec('descendants(solution)')).toEqual([{ kind: 'descendants', typeFilter: 'solution' }]);
   });
 
   it('parses siblings', () => {
@@ -63,9 +56,7 @@ describe('parseIncludeSpec', () => {
   });
 
   it('parses relationships with child type', () => {
-    expect(parseIncludeSpec('relationships(assumption)')).toEqual([
-      { kind: 'relationships', childType: 'assumption' },
-    ]);
+    expect(parseIncludeSpec('relationships(assumption)')).toEqual([{ kind: 'relationships', childType: 'assumption' }]);
   });
 
   it('parses relationships with parent:child', () => {
@@ -146,7 +137,13 @@ const ctx = buildContext(allNodes);
 
 describe('expandInclude — ancestors', () => {
   it('adds all ancestors of matched nodes', () => {
-    const result = expandInclude([sol1], parseIncludeSpec('ancestors'), ctx.nodeIndex, ctx.childrenIndex, ctx.augmented);
+    const result = expandInclude(
+      [sol1],
+      parseIncludeSpec('ancestors'),
+      ctx.nodeIndex,
+      ctx.childrenIndex,
+      ctx.augmented,
+    );
     const titles = result.map((n) => n.schemaData.title);
     expect(titles).toContain('Solution 1');
     expect(titles).toContain('Opportunity A');
@@ -154,7 +151,13 @@ describe('expandInclude — ancestors', () => {
   });
 
   it('filters ancestors by type', () => {
-    const result = expandInclude([sol1], parseIncludeSpec('ancestors(goal)'), ctx.nodeIndex, ctx.childrenIndex, ctx.augmented);
+    const result = expandInclude(
+      [sol1],
+      parseIncludeSpec('ancestors(goal)'),
+      ctx.nodeIndex,
+      ctx.childrenIndex,
+      ctx.augmented,
+    );
     const titles = result.map((n) => n.schemaData.title);
     expect(titles).toContain('Solution 1');
     expect(titles).toContain('Goal');
@@ -165,7 +168,9 @@ describe('expandInclude — ancestors', () => {
     const result = expandInclude(
       [sol1, sol2],
       parseIncludeSpec('ancestors(goal)'),
-      ctx.nodeIndex, ctx.childrenIndex, ctx.augmented,
+      ctx.nodeIndex,
+      ctx.childrenIndex,
+      ctx.augmented,
     );
     const titles = result.map((n) => n.schemaData.title);
     expect(titles.filter((t) => t === 'Goal')).toHaveLength(1);
@@ -174,7 +179,13 @@ describe('expandInclude — ancestors', () => {
 
 describe('expandInclude — descendants', () => {
   it('adds all descendants of matched nodes', () => {
-    const result = expandInclude([goal], parseIncludeSpec('descendants'), ctx.nodeIndex, ctx.childrenIndex, ctx.augmented);
+    const result = expandInclude(
+      [goal],
+      parseIncludeSpec('descendants'),
+      ctx.nodeIndex,
+      ctx.childrenIndex,
+      ctx.augmented,
+    );
     const titles = result.map((n) => n.schemaData.title);
     expect(titles).toContain('Goal');
     expect(titles).toContain('Opportunity A');
@@ -187,7 +198,9 @@ describe('expandInclude — descendants', () => {
     const result = expandInclude(
       [goal],
       parseIncludeSpec('descendants(solution)'),
-      ctx.nodeIndex, ctx.childrenIndex, ctx.augmented,
+      ctx.nodeIndex,
+      ctx.childrenIndex,
+      ctx.augmented,
     );
     const titles = result.map((n) => n.schemaData.title);
     expect(titles).toContain('Goal');
@@ -214,14 +227,26 @@ describe('expandInclude — siblings', () => {
 
 describe('expandInclude — relationships', () => {
   it('adds nodes connected via relationship edges (no filter)', () => {
-    const result = expandInclude([oppA], parseIncludeSpec('relationships'), ctx.nodeIndex, ctx.childrenIndex, ctx.augmented);
+    const result = expandInclude(
+      [oppA],
+      parseIncludeSpec('relationships'),
+      ctx.nodeIndex,
+      ctx.childrenIndex,
+      ctx.augmented,
+    );
     const titles = result.map((n) => n.schemaData.title);
     expect(titles).toContain('Opportunity A');
     expect(titles).toContain('Assumption 1');
   });
 
   it('does not include hierarchy-connected nodes', () => {
-    const result = expandInclude([oppA], parseIncludeSpec('relationships'), ctx.nodeIndex, ctx.childrenIndex, ctx.augmented);
+    const result = expandInclude(
+      [oppA],
+      parseIncludeSpec('relationships'),
+      ctx.nodeIndex,
+      ctx.childrenIndex,
+      ctx.augmented,
+    );
     const titles = result.map((n) => n.schemaData.title);
     // solutions are hierarchy children, not relationship children
     expect(titles).not.toContain('Solution 1');
@@ -231,7 +256,13 @@ describe('expandInclude — relationships', () => {
   });
 
   it('filters relationships by child type', () => {
-    const result = expandInclude([oppA], parseIncludeSpec('relationships(assumption)'), ctx.nodeIndex, ctx.childrenIndex, ctx.augmented);
+    const result = expandInclude(
+      [oppA],
+      parseIncludeSpec('relationships(assumption)'),
+      ctx.nodeIndex,
+      ctx.childrenIndex,
+      ctx.augmented,
+    );
     const titles = result.map((n) => n.schemaData.title);
     expect(titles).toContain('Assumption 1');
   });
@@ -240,7 +271,9 @@ describe('expandInclude — relationships', () => {
     const result = expandInclude(
       [oppA],
       parseIncludeSpec('relationships(opportunity:assumption)'),
-      ctx.nodeIndex, ctx.childrenIndex, ctx.augmented,
+      ctx.nodeIndex,
+      ctx.childrenIndex,
+      ctx.augmented,
     );
     const titles = result.map((n) => n.schemaData.title);
     expect(titles).toContain('Assumption 1');
@@ -250,7 +283,9 @@ describe('expandInclude — relationships', () => {
     const result = expandInclude(
       [oppA],
       parseIncludeSpec('relationships(opportunity:assumptions:assumption)'),
-      ctx.nodeIndex, ctx.childrenIndex, ctx.augmented,
+      ctx.nodeIndex,
+      ctx.childrenIndex,
+      ctx.augmented,
     );
     const titles = result.map((n) => n.schemaData.title);
     expect(titles).toContain('Assumption 1');
@@ -260,7 +295,9 @@ describe('expandInclude — relationships', () => {
     const result = expandInclude(
       [oppA],
       parseIncludeSpec('relationships(opportunity:risks:assumption)'),
-      ctx.nodeIndex, ctx.childrenIndex, ctx.augmented,
+      ctx.nodeIndex,
+      ctx.childrenIndex,
+      ctx.augmented,
     );
     const titles = result.map((n) => n.schemaData.title);
     expect(titles).not.toContain('Assumption 1');
@@ -272,12 +309,14 @@ describe('expandInclude — multiple directives', () => {
     const result = expandInclude(
       [sol1],
       parseIncludeSpec('ancestors(goal), siblings'),
-      ctx.nodeIndex, ctx.childrenIndex, ctx.augmented,
+      ctx.nodeIndex,
+      ctx.childrenIndex,
+      ctx.augmented,
     );
     const titles = result.map((n) => n.schemaData.title);
-    expect(titles).toContain('Solution 1');  // matched
-    expect(titles).toContain('Goal');         // via ancestors(goal)
-    expect(titles).toContain('Solution 2');   // via siblings
+    expect(titles).toContain('Solution 1'); // matched
+    expect(titles).toContain('Goal'); // via ancestors(goal)
+    expect(titles).toContain('Solution 2'); // via siblings
     expect(titles).not.toContain('Opportunity A'); // filtered out by ancestors(goal)
     // No duplicates
     expect(new Set(titles).size).toBe(titles.length);
@@ -286,7 +325,13 @@ describe('expandInclude — multiple directives', () => {
 
 describe('expandInclude — preserves matched nodes', () => {
   it('always includes matched nodes in result', () => {
-    const result = expandInclude([sol3], parseIncludeSpec('ancestors(goal)'), ctx.nodeIndex, ctx.childrenIndex, ctx.augmented);
+    const result = expandInclude(
+      [sol3],
+      parseIncludeSpec('ancestors(goal)'),
+      ctx.nodeIndex,
+      ctx.childrenIndex,
+      ctx.augmented,
+    );
     const titles = result.map((n) => n.schemaData.title);
     expect(titles).toContain('Solution 3');
     expect(titles).toContain('Goal');

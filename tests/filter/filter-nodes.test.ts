@@ -80,10 +80,7 @@ describe('filterNodes', () => {
   describe('SELECT clause expansion', () => {
     it('expands result with SELECT ancestors when present', async () => {
       // Matched: solutions. Expanded: + their opportunity ancestor.
-      const result = await filterNodes(
-        "SELECT ancestors(opportunity) WHERE resolvedType='solution'",
-        allNodes,
-      );
+      const result = await filterNodes("SELECT ancestors(opportunity) WHERE resolvedType='solution'", allNodes);
       const titles = result.map((n) => n.schemaData.title);
       expect(titles).toContain('Solution 1');
       expect(titles).toContain('Active Opportunity'); // ancestor of solution 1
