@@ -55,11 +55,15 @@ bunx ost-tools show <space> --filter "WHERE resolvedType='solution' and \$exists
 bunx ost-tools show <space> --filter my-view-name
 ```
 
-**Filter expression syntax:** `WHERE {jsonata}` | `SELECT {spec} WHERE {jsonata}` | bare JSONata.
-Within the predicate, node fields (e.g. `resolvedType`, `status`) are directly accessible. Two
+**Filter expression syntax:** `WHERE {jsonata}` | `SELECT {spec} WHERE {jsonata}` | `SELECT {spec}` | bare JSONata.
+Within the WHERE predicate, node fields (e.g. `resolvedType`, `status`) are directly accessible. Two
 traversal arrays are also available per node:
 - `ancestors[]` — ancestor nodes nearest-first, each with `_field`, `_source`, `_selfRef` edge metadata
 - `descendants[]` — descendant nodes, same structure
+
+The SELECT spec is a comma-separated list of directives that expand the result set:
+`ancestors[(type)]`, `descendants[(type)]`, `siblings`,
+`relationships[(childType | parentType:childType | parentType:field:childType)]`
 
 **Named views** are defined in the space config:
 ```json5

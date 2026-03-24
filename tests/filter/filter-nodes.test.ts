@@ -1,4 +1,4 @@
-import { describe, expect, it, spyOn } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 import { filterNodes } from '../../src/filter/filter-nodes';
 import type { SpaceNode } from '../../src/types';
 import { makeParentRef } from '../test-helpers';
@@ -77,19 +77,22 @@ describe('filterNodes', () => {
     });
   });
 
-  describe('SELECT clause warning', () => {
-    it('warns when SELECT clause is present', async () => {
-      const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
-      await filterNodes("SELECT ancestors(opportunity) WHERE resolvedType='solution'", allNodes);
-      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('SELECT clause'));
-      warnSpy.mockRestore();
+  describe('SELECT clause expansion', () => {
+    it('expands result with SELECT ancestors when present', async () => {
+      // Matched: solutions. Expanded: + their opportunity ancestor.
+      const result = await filterNodes(
+        "SELECT ancestors(opportunity) WHERE resolvedType='solution'",
+        allNodes,
+      );
+      const titles = result.map((n) => n.schemaData.title);
+      expect(titles).toContain('Solution 1');
+      expect(titles).toContain('Active Opportunity'); // ancestor of solution 1
     });
 
-    it('does not warn when only WHERE is present', async () => {
-      const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
-      await filterNodes("WHERE resolvedType='solution'", allNodes);
-      expect(warnSpy).not.toHaveBeenCalled();
-      warnSpy.mockRestore();
+    it('SELECT-only returns all nodes expanded', async () => {
+      const result = await filterNodes('SELECT ancestors(opportunity)', allNodes);
+      // All nodes returned (SELECT-only = no WHERE filter)
+      expect(result.length).toBeGreaterThanOrEqual(allNodes.length);
     });
   });
 

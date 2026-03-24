@@ -243,7 +243,8 @@ Filter expressions are used with `--filter` and in config `views`. They use a `S
 | Form | Meaning |
 |------|---------|
 | `WHERE {jsonata}` | Return nodes where the JSONata predicate is truthy |
-| `SELECT {spec} WHERE {jsonata}` | As above; SELECT expansion is reserved for a future release |
+| `SELECT {spec} WHERE {jsonata}` | Filter by WHERE, then expand result via SELECT |
+| `SELECT {spec}` | Expand from all nodes via SELECT (no WHERE filter) |
 | `{jsonata}` | Bare JSONata, treated as a WHERE predicate (convenience shorthand) |
 
 The WHERE predicate is a [JSONata](https://docs.jsonata.org/overview) expression evaluated per node. Within the expression, each node's fields are accessible directly (e.g. `resolvedType`, `status`, any schema fields like `title`). Additionally, two pre-computed traversal arrays are available:
@@ -253,6 +254,22 @@ The WHERE predicate is a [JSONata](https://docs.jsonata.org/overview) expression
   - `_source` — `'hierarchy'` or `'relationship'`
   - `_selfRef` — whether the edge is a same-type (self-referential) link
 - **`descendants[]`** — same structure, for descendant nodes
+
+**SELECT spec** expands the result set by walking the graph from matched nodes. The spec is a comma-separated list of directives:
+
+| Directive | Meaning |
+|-----------|---------|
+| `ancestors` | All ancestor nodes |
+| `ancestors(type)` | Ancestors of the given resolved type |
+| `descendants` | All descendant nodes |
+| `descendants(type)` | Descendants of the given resolved type |
+| `siblings` | Nodes sharing at least one parent with matched nodes |
+| `relationships` | All nodes connected via a relationship (non-hierarchy) edge |
+| `relationships(childType)` | Relationship-connected nodes of the given child type |
+| `relationships(parentType:childType)` | As above, also filtering by parent type |
+| `relationships(parentType:field:childType)` | Fully qualified: also filtering by edge field name |
+
+Multiple directives may be combined: `SELECT ancestors(goal), siblings WHERE ...`
 
 **Examples:**
 
@@ -271,6 +288,15 @@ WHERE $exists(ancestors[resolvedType='goal'])
 
 // Bare JSONata shorthand (no WHERE keyword)
 resolvedType='solution' and status='active'
+
+// Solutions + their opportunity ancestors
+SELECT ancestors(opportunity) WHERE resolvedType='solution'
+
+// Solutions + their siblings (other solutions under same opportunity)
+SELECT siblings WHERE resolvedType='solution' and status='active'
+
+// Opportunities + their related assumptions
+SELECT relationships(assumption) WHERE resolvedType='opportunity'
 ```
 
 ### Generate Mermaid diagram

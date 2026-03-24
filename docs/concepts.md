@@ -261,7 +261,8 @@ A **filter expression** is a string that selects a subset of nodes from a space.
 
 ```
 WHERE {jsonata}                    — return nodes where the JSONata predicate is truthy
-SELECT {spec} WHERE {jsonata}      — predicate + include spec (SELECT expansion is a future feature)
+SELECT {spec} WHERE {jsonata}      — filter by WHERE, then expand result via SELECT
+SELECT {spec}                      — expand from all nodes (no WHERE filter)
 {jsonata}                          — bare JSONata, treated as a WHERE predicate (convenience shorthand)
 ```
 
@@ -284,6 +285,24 @@ Each entry in `ancestors[]` or `descendants[]` includes all schema fields of the
 | `_source` | `'hierarchy' \| 'relationship'` | Whether the edge came from the hierarchy or a relationship |
 | `_selfRef` | `boolean` | Whether the edge is a same-type (self-referential) link |
 
+### SELECT spec
+
+The SELECT clause expands the result set by walking the graph from matched nodes. The spec is a comma-separated list of directives:
+
+| Directive | Meaning |
+|-----------|---------|
+| `ancestors` | All ancestor nodes |
+| `ancestors(type)` | Ancestors of the given resolved type |
+| `descendants` | All descendant nodes |
+| `descendants(type)` | Descendants of the given resolved type |
+| `siblings` | Nodes sharing at least one parent with matched nodes |
+| `relationships` | Nodes connected via a relationship (non-hierarchy) edge |
+| `relationships(childType)` | Relationship-connected nodes of the given child type |
+| `relationships(parentType:childType)` | As above, also filtering by parent type |
+| `relationships(parentType:field:childType)` | Fully qualified: also filtering by edge field name |
+
+Multiple directives may be combined with commas: `SELECT ancestors(goal), siblings WHERE ...`
+
 ### Examples
 
 ```jsonata
@@ -292,6 +311,12 @@ WHERE resolvedType='solution' and status='active'
 WHERE resolvedType='solution' and $exists(ancestors[resolvedType='opportunity' and status='active'])
 
 WHERE $count(descendants[resolvedType='solution']) > 3
+
+SELECT ancestors(opportunity) WHERE resolvedType='solution'
+
+SELECT siblings WHERE resolvedType='solution' and status='active'
+
+SELECT relationships(assumption) WHERE resolvedType='opportunity'
 ```
 
 ---

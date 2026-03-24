@@ -1,6 +1,7 @@
 import jsonata from 'jsonata';
 import type { SpaceNode } from '../types';
 import { type AugmentedFlatNode, augmentNode, buildChildrenIndex } from './augment-nodes';
+import { expandInclude, parseIncludeSpec } from './expand-include';
 import { parseFilterExpression } from './parse-expression';
 
 const expressionCache = new Map<string, ReturnType<typeof jsonata>>();
@@ -10,32 +11,24 @@ const expressionCache = new Map<string, ReturnType<typeof jsonata>>();
  *
  * The expression follows the SELECT...WHERE DSL:
  *   WHERE {jsonata}                — return nodes where the JSONata predicate is truthy
- *   SELECT {spec} WHERE {jsonata}  — as above; SELECT expansion is deferred to Phase 2
+ *   SELECT {spec} WHERE {jsonata}  — filter + expand result via include spec
+ *   SELECT {spec}                  — expand from all nodes via include spec
  *   {jsonata}                      — bare JSONata treated as WHERE predicate
  *
- * Each node's predicate is evaluated against an augmented context that includes
+ * Each node's WHERE predicate is evaluated against an augmented context that includes
  * pre-computed ancestors[] and descendants[] arrays with edge metadata.
+ *
+ * The SELECT spec may contain: ancestors[(type)], descendants[(type)], siblings,
+ * relationships[(childType | parentType:childType | parentType:field:childType)]
  *
  * @param expression - Filter DSL expression or view expression string
  * @param nodes - All nodes in the space
- * @returns Matched SpaceNode[] (original node objects, not augmented representations)
+ * @returns Filtered+expanded SpaceNode[] (original node objects)
  */
 export async function filterNodes(expression: string, nodes: SpaceNode[]): Promise<SpaceNode[]> {
   const { where, include } = parseFilterExpression(expression);
 
-  if (include !== undefined) {
-    console.warn(
-      'Warning: SELECT clause in filter expression is not yet evaluated. ' +
-        'Only the WHERE clause will be applied. SELECT expansion will be supported in a future release.',
-    );
-  }
-
-  if (where === undefined) {
-    // SELECT-only: no filter predicate, return all nodes (Phase 2 will expand from them)
-    return nodes;
-  }
-
-  // Build lookup structures
+  // Build lookup structures (always needed for SELECT expansion or WHERE evaluation)
   const nodeIndex = new Map<string, SpaceNode>();
   for (const node of nodes) {
     const title = node.schemaData.title as string;
@@ -43,38 +36,51 @@ export async function filterNodes(expression: string, nodes: SpaceNode[]): Promi
   }
   const childrenIndex = buildChildrenIndex(nodes);
 
-  // Pre-augment all nodes once (ancestors/descendants needed for cross-node predicate access)
+  // Pre-augment all nodes once (ancestors/descendants needed for WHERE predicates and SELECT expansion)
   const augmented = new Map<string, AugmentedFlatNode>();
   for (const node of nodes) {
     const title = node.schemaData.title as string;
     augmented.set(title, augmentNode(node, nodeIndex, childrenIndex));
   }
-  const allAugmented = Array.from(augmented.values());
 
-  // Compile and cache the JSONata expression
-  let expr = expressionCache.get(where);
-  if (!expr) {
-    expr = jsonata(where);
-    expressionCache.set(where, expr);
+  // Step 1: apply WHERE clause to get the matched set
+  let matched: SpaceNode[];
+  if (where === undefined) {
+    // SELECT-only: start from all nodes
+    matched = nodes;
+  } else {
+    const allAugmented = Array.from(augmented.values());
+
+    // Compile and cache the JSONata expression
+    let expr = expressionCache.get(where);
+    if (!expr) {
+      expr = jsonata(where);
+      expressionCache.set(where, expr);
+    }
+
+    matched = [];
+    for (const node of nodes) {
+      const title = node.schemaData.title as string;
+      const current = augmented.get(title);
+      if (!current) continue;
+
+      // Spread current node fields at root level so bare field names work in expressions
+      // (e.g. `resolvedType='solution'` rather than `current.resolvedType='solution'`).
+      // Also expose `ancestors` and `descendants` directly, and `nodes` for cross-node access.
+      const input = { ...current, nodes: allAugmented };
+      try {
+        const result = await expr.evaluate(input);
+        if (result) matched.push(node);
+      } catch (error) {
+        console.warn(`Warning: Error evaluating filter expression for node "${title}":`, error);
+      }
+    }
   }
 
-  // Evaluate the predicate for each node
-  const matched: SpaceNode[] = [];
-  for (const node of nodes) {
-    const title = node.schemaData.title as string;
-    const current = augmented.get(title);
-    if (!current) continue;
-
-    // Spread current node fields at root level so bare field names work in expressions
-    // (e.g. `resolvedType='solution'` rather than `current.resolvedType='solution'`).
-    // Also expose `ancestors` and `descendants` directly, and `nodes` for cross-node access.
-    const input = { ...current, nodes: allAugmented };
-    try {
-      const result = await expr.evaluate(input);
-      if (result) matched.push(node);
-    } catch (error) {
-      console.warn(`Warning: Error evaluating filter expression for node "${title}":`, error);
-    }
+  // Step 2: apply SELECT clause to expand the result set
+  if (include !== undefined) {
+    const directives = parseIncludeSpec(include);
+    return expandInclude(matched, directives, nodeIndex, childrenIndex, augmented);
   }
 
   return matched;
