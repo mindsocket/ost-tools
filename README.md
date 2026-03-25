@@ -244,7 +244,7 @@ Filter expressions are used with `--filter` and in config `views`. They use a `S
 |------|---------|
 | `WHERE {jsonata}` | Return nodes where the JSONata predicate is truthy |
 | `SELECT {spec} WHERE {jsonata}` | Filter by WHERE, then expand result via SELECT |
-| `SELECT {spec}` | Expand from all nodes via SELECT (no WHERE filter) |
+| `SELECT {spec}` | Expand from all nodes via SELECT (no WHERE filter — returns all nodes, expanded per spec) |
 | `{jsonata}` | Bare JSONata, treated as a WHERE predicate (convenience shorthand) |
 
 The WHERE predicate is a [JSONata](https://docs.jsonata.org/overview) expression evaluated per node. Within the expression, each node's fields are accessible directly (e.g. `resolvedType`, `status`, any schema fields like `title`). Additionally, two pre-computed traversal arrays are available:

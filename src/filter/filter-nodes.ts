@@ -68,12 +68,8 @@ export async function filterNodes(expression: string, nodes: SpaceNode[]): Promi
       // (e.g. `resolvedType='solution'` rather than `current.resolvedType='solution'`).
       // Also expose `ancestors` and `descendants` directly, and `nodes` for cross-node access.
       const input = { ...current, nodes: allAugmented };
-      try {
         const result = await expr.evaluate(input);
         if (result) matched.push(node);
-      } catch (error) {
-        console.warn(`Warning: Error evaluating filter expression for node "${title}":`, error);
-      }
     }
   }
 
