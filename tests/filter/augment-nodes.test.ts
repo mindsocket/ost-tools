@@ -204,8 +204,8 @@ describe('augmentNode', () => {
 
       const result = augmentNode(node, nodeIndex, childrenIndex);
 
-      expect(result['status']).toBe('active');
-      expect(result['resolvedType']).toBe('solution');
+      expect(result.status).toBe('active');
+      expect(result.resolvedType).toBe('solution');
     });
 
     it('includes resolvedParentTitles', () => {
